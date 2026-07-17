@@ -30,54 +30,24 @@ pub enum UpdateRunMode {
 const PROMPT_UPDATE_NOW: &str = "Update now? [Y/n/d]";
 const MSG_AUTO_UPDATE_BACKGROUND: &str = "Auto-update running in background.";
 const MSG_RUN_UPDATE_MANUAL: &str = "Run `grok update` to get the latest version.";
-/// An empty or `"stable"` channel means stable — the installers' default
-/// (`CHANNEL="${GROK_CHANNEL:-stable}"` in install.sh).
-fn is_stable_channel(channel: &str) -> bool {
-    channel.is_empty() || channel == "stable"
-}
-
-/// Manual-install one-liner for this platform's bootstrap installer.
-///
-/// On Unix the variable must prefix `bash` (which runs install.sh), not
-/// `curl`: in `VAR=x curl … | bash` the assignment applies to `curl` only
-/// and install.sh would fall back to stable.
-fn manual_install_cmd(channel: &str) -> String {
-    // Only interpolate a well-formed channel ([A-Za-z0-9._-]) into the
-    // shell one-liner; anything else falls back to stable (a working
-    // installer beats a broken quoted command).
-    let channel = channel.trim();
-    let safe = !channel.is_empty()
-        && channel
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
-    if channel == "enterprise" {
-        // Enterprise has its own bootstrap script; it needs no channel env.
-        return if cfg!(windows) {
-            "irm https://x.ai/cli/enterprise-install.ps1 | iex".to_string()
-        } else {
-            "curl -fsSL https://x.ai/cli/enterprise-install.sh | bash".to_string()
-        };
-    }
-    if is_stable_channel(channel) || !safe {
-        return if cfg!(windows) {
-            "irm https://x.ai/cli/install.ps1 | iex".to_string()
-        } else {
-            "curl -fsSL https://x.ai/cli/install.sh | bash".to_string()
-        };
-    }
-    if cfg!(windows) {
-        format!("$env:GROK_CHANNEL='{channel}'; irm https://x.ai/cli/install.ps1 | iex")
-    } else {
-        format!("curl -fsSL https://x.ai/cli/install.sh | GROK_CHANNEL='{channel}' bash")
-    }
+/// Manual reinstall hint for Grok Privacy (never points at x.ai installers —
+/// those would replace this fork with official Grok Build).
+fn manual_install_cmd() -> &'static str {
+    "git pull && cargo build -p xai-grok-pager-bin --release  # binary: target/release/grok"
 }
 
 /// Build a reinstall hint for a known installer type.
-fn reinstall_hint(installer: &str, channel: &str) -> String {
+///
+/// `_channel` keeps upstream's signature: a source-built fork has no vendor
+/// release channel to interpolate into an installer one-liner.
+fn reinstall_hint(installer: &str, _channel: &str) -> String {
     match installer {
-        "npm" => "Please reinstall via npm:\n  npm i -g @xai-official/grok".to_string(),
-        "gh-release" => "Please reinstall via GitHub Releases:\n  gh release download --repo xai-org-shared/grok-build --pattern 'grok-*' --output grok && chmod +x grok".to_string(),
-        _ => format!("Please reinstall via:\n  {}", manual_install_cmd(channel)),
+        "npm" => "Please reinstall via npm:\n  npm i -g @lycaos/grok-privacy".to_string(),
+        "gh-release" => "Please reinstall from this fork's GitHub Releases:\n  https://github.com/lycaos/grok-privacy/releases".to_string(),
+        _ => format!(
+            "Please reinstall Grok Privacy from source (do not use x.ai/cli installers):\n  {}",
+            manual_install_cmd()
+        ),
     }
 }
 
@@ -177,6 +147,51 @@ pub fn classify_install_error(err: &anyhow::Error) -> CliUpdateErrorKind {
     }
 }
 
+/// Env var used **only** when the crate is built with
+/// `--features updater-integration-tests`. Product builds never compile the
+/// escape path, so `cargo run` / release binaries cannot disable the gate.
+#[cfg(feature = "updater-integration-tests")]
+const TEST_ALLOW_UPDATE_ENV: &str = "GROK_TEST_ALLOW_UPDATE";
+
+/// Grok Privacy never auto-updates from vendor (x.ai) channels. Enabling that
+/// path would download official Grok Build and overwrite the community binary.
+///
+/// This is the single policy flag for every install/update entry point.
+/// Callers must check it, and [`run_install_script`] enforces it as the
+/// last line of defense.
+///
+/// **No runtime escape hatch in product builds.** The only way to relax this
+/// for local mock installer tests is to compile with the
+/// `updater-integration-tests` feature *and* set `GROK_TEST_ALLOW_UPDATE=1`.
+/// Ordinary `cargo build` / `cargo run` / release builds do not include that
+/// path at all.
+#[inline]
+pub fn vendor_auto_update_forbidden() -> bool {
+    #[cfg(feature = "updater-integration-tests")]
+    {
+        if std::env::var(TEST_ALLOW_UPDATE_ENV).as_deref() == Ok("1") {
+            return false;
+        }
+    }
+    xai_grok_version::PRIVACY_BUILD || xai_grok_version::research_data_collection_forbidden()
+}
+
+/// User-facing explanation when an install/update path is blocked.
+pub fn vendor_update_blocked_message() -> String {
+    format!(
+        "Grok Privacy never installs from vendor (x.ai) update channels — that would \
+         replace this privacy fork with official Grok Build.\n\n\
+         Rebuild from source instead:\n  {}\n\n\
+         Community releases (when published): https://github.com/lycaos/grok-privacy/releases",
+        manual_install_cmd()
+    )
+}
+
+/// Err used by install/update chokepoints under [`vendor_auto_update_forbidden`].
+fn vendor_update_blocked_err() -> anyhow::Error {
+    anyhow::anyhow!("{}", vendor_update_blocked_message())
+}
+
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateStatus {
@@ -197,9 +212,10 @@ pub fn print_update_status(status: &UpdateStatus, json: bool) -> anyhow::Result<
         return Ok(());
     }
 
+    // Probe / network failures only — not privacy policy hard-off.
     if let Some(error) = status.error.as_deref() {
         println!(
-            "Grok Build - v{} [{}]",
+            "Grok Privacy - v{} [{}]",
             status.current_version, status.channel
         );
         println!("Update check failed: {error}");
@@ -208,27 +224,39 @@ pub fn print_update_status(status: &UpdateStatus, json: bool) -> anyhow::Result<
 
     let channel_label = format!(" [{}]", status.channel);
 
+    // Expected policy state for Grok Privacy: no vendor update path, not a failure.
+    if vendor_auto_update_forbidden()
+        && !status.update_available
+        && status.latest_version.is_none()
+        && status.auto_update == Some(false)
+    {
+        println!("Grok Privacy - v{}{}", status.current_version, channel_label);
+        println!("Auto-update: disabled (privacy build never installs from vendor channels).");
+        println!("{}", vendor_update_blocked_message());
+        return Ok(());
+    }
+
     if status.update_available {
         if let Some(latest_version) = status.latest_version.as_deref() {
             println!(
-                "A new version of Grok Build is available: {} -> {}{}",
+                "A new version of Grok Privacy is available: {} -> {}{}",
                 status.current_version, latest_version, channel_label
             );
         } else {
-            println!("A new version of Grok Build is available.");
+            println!("A new version of Grok Privacy is available.");
         }
         return Ok(());
     }
 
     if let Some(latest_version) = status.latest_version.as_deref() {
         println!(
-            "Grok Build - v{} (latest: {}){}",
+            "Grok Privacy - v{} (latest: {}){}",
             status.current_version, latest_version, channel_label
         );
         return Ok(());
     }
 
-    println!("Grok Build - v{}{}", status.current_version, channel_label);
+    println!("Grok Privacy - v{}{}", status.current_version, channel_label);
     Ok(())
 }
 
@@ -238,6 +266,22 @@ pub async fn check_update_status(update_config: &UpdateConfig) -> UpdateStatus {
     let current_config = config::load_config().await;
     let auto_update = current_config.cli.auto_update;
     let channel = update_config.channel.clone();
+
+    // Privacy build: do not probe vendor update endpoints at all.
+    // Leave `error` as None — this is expected policy, not a failed check.
+    // `auto_update: Some(false)` + no latest is the machine-readable signal;
+    // human text comes from print_update_status.
+    if vendor_auto_update_forbidden() {
+        return UpdateStatus {
+            current_version,
+            latest_version: None,
+            update_available: false,
+            installer,
+            channel,
+            auto_update: Some(false),
+            error: None,
+        };
+    }
 
     let Some(ref inst) = installer else {
         return UpdateStatus {
@@ -362,6 +406,9 @@ async fn fetch_update_plan(
 /// on the installer (via `installer_allows_downgrade`) so npm is never
 /// downgraded — the decision depends on the installer, never the caller.
 pub async fn auto_update_target(update_config: &UpdateConfig) -> Option<(&'static str, String)> {
+    if vendor_auto_update_forbidden() {
+        return None;
+    }
     let installer = get_installer().await?;
     let current = get_installed_grok_version();
     let policy = config::VersionPolicy::resolve();
@@ -414,6 +461,11 @@ pub async fn ensure_latest_on_disk(update_config: &UpdateConfig) -> Result<Ensur
         installed: None,
         relaunch_needed: false,
     };
+    // Leader hourly path previously bypassed privacy gates and could install
+    // official Grok Build via run_install_script → install_internal (x.ai/cli).
+    if vendor_auto_update_forbidden() {
+        return Ok(outcome);
+    }
     let Some(installer) = get_installer().await else {
         return Ok(outcome);
     };
@@ -608,6 +660,12 @@ pub async fn check_update_background(update_config: &UpdateConfig) -> Background
         return BackgroundUpdateCheck::none();
     }
 
+    // Community fork: never pull vendor auto-updates (would replace `grok`
+    // with official `grok` from x.ai install channels).
+    if vendor_auto_update_forbidden() {
+        return BackgroundUpdateCheck::none();
+    }
+
     let current_config = config::load_config().await;
     if current_config.cli.auto_update == Some(false) {
         return BackgroundUpdateCheck::none();
@@ -701,24 +759,15 @@ pub async fn run_update_if_available(
 
     let current_config = config::load_config().await;
 
-    // Skip update check if auto-update is explicitly disabled.
-    if current_config.cli.auto_update == Some(false) {
+    // Grok Privacy: vendor auto-update is hard-disabled (not an opt-in).
+    if vendor_auto_update_forbidden() {
+        return Ok(false);
+    }
+    if current_config.cli.auto_update != Some(true) {
         return Ok(false);
     }
 
-    // Resolve effective auto_update: None defaults to true (first-run).
-    let auto_update = current_config.cli.auto_update.unwrap_or(true);
-
-    if current_config.cli.auto_update.is_none()
-        && let Err(e) = config::update_config(|st| {
-            if st.cli.auto_update.is_none() {
-                st.cli.auto_update = Some(true);
-            }
-        })
-        .await
-    {
-        tracing::warn!("Failed to save auto-update setting: {}", e);
-    }
+    let auto_update = true;
 
     let current_version = get_installed_grok_version();
     let policy = config::VersionPolicy::resolve();
@@ -745,7 +794,7 @@ pub async fn run_update_if_available(
     let channel_label = format!(" [{}]", update_config.channel);
     if auto_update {
         eprintln!(
-            "A new version of Grok Build is available: {} -> {}{}",
+            "A new version of Grok Privacy is available: {} -> {}{}",
             current_version, latest_version, channel_label
         );
         if interactive {
@@ -773,7 +822,7 @@ pub async fn run_update_if_available(
             return Ok(false);
         }
         eprintln!(
-            "A new version of Grok Build is available: {} -> {}{}",
+            "A new version of Grok Privacy is available: {} -> {}{}",
             current_version, latest_version, channel_label
         );
         if interactive {
@@ -930,6 +979,12 @@ pub async fn run_install_script(
     update_config: &UpdateConfig,
     trigger: CliUpdateTrigger,
 ) -> Result<()> {
+    // Last-line chokepoint: every install path (TUI, leader, minimum_version,
+    // `grok update`, npm / gh-release / internal) must pass here. Refused
+    // before any telemetry work: a blocked install is a no-op, not an event.
+    if vendor_auto_update_forbidden() {
+        return Err(vendor_update_blocked_err());
+    }
     // What's on disk is being replaced, not this (possibly stale) process's
     // version; npm has no trustworthy disk version, so it falls back.
     let from_version =
@@ -1372,6 +1427,12 @@ async fn download_cli_artifact_from_gcs(
 
 /// Returns the version that was actually activated.
 async fn install_internal(target: Option<&str>, update_config: &UpdateConfig) -> Result<String> {
+    // Belt-and-suspenders: production internal installer always hits x.ai/cli
+    // (or its GCS fallback). Never run under a privacy build even if a caller
+    // forgets to go through run_install_script.
+    if vendor_auto_update_forbidden() {
+        return Err(vendor_update_blocked_err());
+    }
     let bases = crate::version::cli_base_urls();
     let base_refs: Vec<&str> = bases.iter().map(String::as_str).collect();
     install_internal_from_bases(target, update_config, &base_refs).await
@@ -2553,7 +2614,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>) 
     warn_if_other_grok_processes_running();
 
     let version_arg = match target {
-        Some(ver) => format!("@xai-official/grok@{ver}"),
+        Some(ver) => format!("@lycaos/grok-privacy@{ver}"),
         None => {
             // All current callers resolve the version via get_latest_version
             // (which applies max(stable, alpha) for the alpha channel) before
@@ -2564,7 +2625,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>) 
                 "install_npm called without a resolved version, falling back to dist-tag"
             );
             format!(
-                "@xai-official/grok@{}",
+                "@lycaos/grok-privacy@{}",
                 if channel == "alpha" {
                     "alpha"
                 } else {
@@ -2644,6 +2705,11 @@ pub async fn run_update(
     update_config: &mut UpdateConfig,
     trigger: CliUpdateTrigger,
 ) -> Result<Option<String>> {
+    // Manual `grok update` must not pull vendor binaries either.
+    // Message is on the error only (avoid double-print via eprintln + Err).
+    if vendor_auto_update_forbidden() {
+        return Err(vendor_update_blocked_err());
+    }
     apply_channel_switch(channel_switch, update_config).await;
     let installer = match get_installer().await {
         Some(i) => i,
