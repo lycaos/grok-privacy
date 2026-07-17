@@ -1,3 +1,7 @@
+#![cfg(feature = "updater-integration-tests")]
+// Requires: cargo test -p xai-grok-update --features updater-integration-tests
+// + GROK_TEST_ALLOW_UPDATE=1 (set by tests/common).
+
 //! Invariant matrix tests for the rollback/downgrade feature.
 //!
 //! Covers every combination of:
