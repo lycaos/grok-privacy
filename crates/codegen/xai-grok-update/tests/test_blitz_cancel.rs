@@ -1,3 +1,7 @@
+#![cfg(feature = "updater-integration-tests")]
+// Requires: cargo test -p xai-grok-update --features updater-integration-tests
+// + GROK_TEST_ALLOW_UPDATE=1 (set by tests/common).
+
 //! Blitz harness: hammer the download and install path while injecting a truncation / corruption / cancel at every point.
 //! After every iteration, assert the single invariant that makes the brick impossible:
 //!

@@ -1,3 +1,7 @@
+#![cfg(feature = "updater-integration-tests")]
+// Requires: cargo test -p xai-grok-update --features updater-integration-tests
+// + GROK_TEST_ALLOW_UPDATE=1 (set by tests/common).
+
 //! End-to-end tests for the lock-free concurrent-updater convergence model.
 //! Updaters key staleness off the on-disk install, so a binary another process already installed is never downloaded again.
 //! The accepted same-instant race stays harmless because every download attempt writes its own temp file.

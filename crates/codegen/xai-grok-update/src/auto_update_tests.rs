@@ -921,89 +921,66 @@ fn test_reinstall_hint_npm_mentions_npm_command() {
     let hint = reinstall_hint("npm", "stable");
     assert!(hint.contains("npm i -g"), "should suggest npm i -g: {hint}");
     assert!(
-        hint.contains("@xai-official/grok"),
+        hint.contains("@lycaos/grok-privacy"),
         "should name the package: {hint}"
     );
 }
 
 #[test]
-fn test_reinstall_hint_gh_release_mentions_gh_command() {
+fn test_reinstall_hint_gh_release_mentions_grok_releases() {
     let hint = reinstall_hint("gh-release", "stable");
     assert!(
-        hint.contains("gh release download"),
-        "should suggest gh release download: {hint}"
+        hint.contains("lycaos/grok-privacy"),
+        "should point at this fork's releases: {hint}"
     );
     assert!(
-        hint.contains("xai-org-shared/grok-build"),
-        "should name the repo: {hint}"
+        !hint.contains("curl -fsSL https://x.ai/cli"),
+        "must not recommend vendor installers: {hint}"
     );
 }
 
 #[test]
-fn test_reinstall_hint_internal_mentions_platform_installer() {
+fn test_reinstall_hint_internal_points_at_grok_source_build() {
     let hint = reinstall_hint("internal", "stable");
-    if cfg!(windows) {
-        assert!(hint.contains("irm"), "should suggest irm install: {hint}");
-        assert!(
-            hint.contains("install.ps1"),
-            "should reference install.ps1: {hint}"
-        );
-        assert!(
-            !hint.contains("GROK_CHANNEL"),
-            "stable must not set channel: {hint}"
-        );
-    } else {
-        assert!(hint.contains("curl"), "should suggest curl install: {hint}");
-        assert!(
-            hint.contains("install.sh"),
-            "should reference install.sh: {hint}"
-        );
-        assert!(
-            !hint.contains("GROK_CHANNEL"),
-            "stable must not set channel: {hint}"
-        );
-    }
-}
-
-#[test]
-fn test_reinstall_hint_internal_alpha_sets_channel() {
-    let hint = reinstall_hint("internal", "alpha");
-    if cfg!(windows) {
-        assert!(
-            hint.contains("$env:GROK_CHANNEL='alpha'"),
-            "alpha should set GROK_CHANNEL: {hint}"
-        );
-    } else {
-        assert!(
-            hint.contains("| GROK_CHANNEL='alpha' bash"),
-            "alpha must set GROK_CHANNEL on bash (the process running \
-             install.sh), not curl: {hint}"
-        );
-    }
-}
-
-#[test]
-fn test_reinstall_hint_enterprise_uses_enterprise_script() {
-    // Enterprise ships via its own bootstrap script (channel hardcoded there), never install.sh with GROK_CHANNEL
-    let hint = reinstall_hint("internal", "enterprise");
+    // Upstream asserted the install.sh / install.ps1 one-liners here (plus the
+    // alpha-channel and enterprise-script variants). Grok Privacy rebuilds
+    // from source, so those vendor-installer expectations are gone.
     assert!(
-        hint.contains("/enterprise-install."),
-        "enterprise must use the published enterprise-install script: {hint}"
+        hint.contains("cargo build") && hint.contains("grok"),
+        "Grok Privacy reinstall must point at source rebuild, not x.ai installers: {hint}"
     );
     assert!(
-        !hint.contains("GROK_CHANNEL"),
-        "enterprise script needs no channel env: {hint}"
+        !hint.contains("curl -fsSL https://x.ai/cli") && !hint.contains("irm https://x.ai/cli"),
+        "must not recommend vendor installers: {hint}"
     );
 }
 
 #[test]
-fn test_reinstall_hint_malformed_channel_falls_back_to_stable() {
-    // Free-text config channels never reach the shell one-liner unless they are plain [A-Za-z0-9._-] tokens
-    for bad in ["al pha", "x'; rm -rf ~;'", "a\"b", ""] {
-        let hint = reinstall_hint("internal", bad);
+fn test_reinstall_hint_never_interpolates_channel() {
+    // Upstream built a shell one-liner from the configured channel
+    // (install.sh + GROK_CHANNEL, or the enterprise bootstrap script).
+    // The fork rebuilds from source, so no channel — well-formed,
+    // malformed or free text — may reach the hint.
+    for channel in [
+        "stable",
+        "alpha",
+        "enterprise",
+        "al pha",
+        "x'; rm -rf ~;'",
+        "a\"b",
+        "",
+    ] {
+        let hint = reinstall_hint("internal", channel);
         assert!(
             !hint.contains("GROK_CHANNEL"),
-            "malformed channel {bad:?} must fall back to stable: {hint}"
+            "channel {channel:?} must not reach the hint: {hint}"
+        );
+        // The hint *names* x.ai/cli in prose ("do not use …"); what must
+        // never appear is a runnable vendor install command.
+        assert!(
+            !hint.contains("curl -fsSL https://x.ai/cli")
+                && !hint.contains("irm https://x.ai/cli"),
+            "channel {channel:?} must not select a vendor installer: {hint}"
         );
     }
 }
@@ -1083,6 +1060,251 @@ fn test_classify_install_error() {
     ] {
         assert_eq!(classify_install_error(&smoke.into()), expected);
     }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Privacy / vendor-update hard-off (Grok Privacy)
+// Default product builds (no `updater-integration-tests` feature) never
+// honor GROK_TEST_ALLOW_UPDATE — even if the env var is present.
+// ──────────────────────────────────────────────────────────────────────
+
+fn dummy_update_config() -> UpdateConfig {
+    UpdateConfig {
+        proxy_base_url: "https://example.invalid/v1".into(),
+        auth_scope: "test".into(),
+        deployment_key: None,
+        alpha_test_key: None,
+        channel: "stable".into(),
+        npm_registry: None,
+    }
+}
+
+/// Ensure product-policy assertions are not poisoned by a leftover
+/// installer-mock env var (only meaningful when the feature is on).
+fn clear_installer_test_escape_env() {
+    // SAFETY: only called from #[serial] privacy unit tests.
+    unsafe {
+        std::env::remove_var("GROK_TEST_ALLOW_UPDATE");
+    }
+}
+
+#[test]
+#[serial_test::serial]
+fn privacy_build_forbids_vendor_auto_update() {
+    clear_installer_test_escape_env();
+    assert!(
+        vendor_auto_update_forbidden(),
+        "PRIVACY_BUILD must forbid vendor auto-update"
+    );
+    let msg = vendor_update_blocked_message();
+    assert!(
+        msg.contains("cargo build") || msg.contains("source"),
+        "blocked message should point at source rebuild: {msg}"
+    );
+    assert!(
+        !msg.contains("curl -fsSL https://x.ai/cli"),
+        "must not recommend vendor installers: {msg}"
+    );
+}
+
+/// Product builds (this default unit-test profile) must not compile in an
+/// env-based escape hatch. Setting GROK_TEST_ALLOW_UPDATE=1 is a no-op
+/// unless the crate is built with `--features updater-integration-tests`.
+///
+/// Only compiled when the feature is *off* — with the feature on, env
+/// intentionally opens the gate (covered by integration tests).
+#[cfg(not(feature = "updater-integration-tests"))]
+#[test]
+#[serial_test::serial]
+fn env_cannot_disable_privacy_gate_without_feature() {
+    // SAFETY: serial
+    unsafe {
+        std::env::set_var("GROK_TEST_ALLOW_UPDATE", "1");
+    }
+    assert!(
+        vendor_auto_update_forbidden(),
+        "without feature updater-integration-tests, env must not open the gate"
+    );
+    unsafe {
+        std::env::remove_var("GROK_TEST_ALLOW_UPDATE");
+    }
+}
+
+/// With the installer-test feature, env=1 must open the gate (and only then).
+#[cfg(feature = "updater-integration-tests")]
+#[test]
+#[serial_test::serial]
+fn env_opens_privacy_gate_only_with_feature() {
+    // SAFETY: serial
+    unsafe {
+        std::env::remove_var("GROK_TEST_ALLOW_UPDATE");
+    }
+    assert!(
+        vendor_auto_update_forbidden(),
+        "even with feature, gate stays on without env=1"
+    );
+    unsafe {
+        std::env::set_var("GROK_TEST_ALLOW_UPDATE", "1");
+    }
+    assert!(
+        !vendor_auto_update_forbidden(),
+        "feature + GROK_TEST_ALLOW_UPDATE=1 must open the gate for installer mocks"
+    );
+    unsafe {
+        std::env::remove_var("GROK_TEST_ALLOW_UPDATE");
+    }
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn run_install_script_fail_closed_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+
+    let cfg = dummy_update_config();
+    for installer in ["internal", "npm", "gh-release", "unknown"] {
+        let err = run_install_script(
+            installer,
+            Some("9.9.9"),
+            &cfg,
+            CliUpdateTrigger::UserCommand,
+        )
+        .await
+        .expect_err("run_install_script must refuse under privacy");
+        let s = format!("{err:#}");
+        assert!(
+            s.contains("never installs from vendor") || s.contains("x.ai"),
+            "installer={installer}: unexpected error: {s}"
+        );
+        assert!(
+            !s.contains("curl -fsSL https://x.ai/cli"),
+            "installer={installer}: must not recommend vendor curl: {s}"
+        );
+    }
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn ensure_latest_on_disk_no_install_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+
+    let cfg = dummy_update_config();
+    // Must not contact network or install — returns empty outcome.
+    let outcome = ensure_latest_on_disk(&cfg)
+        .await
+        .expect("privacy path is Ok(no-op), not network error");
+    assert_eq!(
+        outcome.installed, None,
+        "leader hourly path must not install under privacy"
+    );
+    assert!(
+        !outcome.relaunch_needed,
+        "must not claim relaunch after a privacy no-op"
+    );
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn auto_update_target_none_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+    let cfg = dummy_update_config();
+    assert_eq!(
+        auto_update_target(&cfg).await,
+        None,
+        "auto_update_target must not return a vendor install plan"
+    );
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn check_update_status_does_not_advertise_vendor_update_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+    let cfg = dummy_update_config();
+    let status = check_update_status(&cfg).await;
+    assert!(
+        !status.update_available,
+        "must not advertise a vendor update"
+    );
+    assert_eq!(status.latest_version, None);
+    assert_eq!(status.auto_update, Some(false));
+    // Policy hard-off is not a probe failure — leave error empty so
+    // print_update_status does not render "Update check failed: ...".
+    assert_eq!(
+        status.error, None,
+        "privacy hard-off must not use the error slot (healthy build)"
+    );
+}
+
+#[test]
+#[serial_test::serial]
+fn print_update_status_privacy_is_informational_not_failure() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+    let status = UpdateStatus {
+        current_version: "0.1.0".into(),
+        latest_version: None,
+        update_available: false,
+        installer: None,
+        channel: "stable".into(),
+        auto_update: Some(false),
+        error: None,
+    };
+    // Must succeed without panicking; human output is informational.
+    print_update_status(&status, false).expect("print must succeed");
+    print_update_status(&status, true).expect("json print must succeed");
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn run_update_fail_closed_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+    let mut cfg = dummy_update_config();
+    let err = run_update(false, None, None, &mut cfg, CliUpdateTrigger::UserCommand)
+        .await
+        .expect_err("manual grok update must refuse vendor install");
+    let s = format!("{err:#}");
+    assert!(
+        s.contains("never installs from vendor") || s.contains("x.ai"),
+        "unexpected error: {s}"
+    );
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn run_update_if_available_is_noop_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+    let cfg = dummy_update_config();
+    let ran = run_update_if_available(
+        UpdateRunMode::Blocking,
+        false,
+        CliUpdateTrigger::UserCommand,
+        &cfg,
+    )
+    .await
+    .expect("must return Ok(false), not panic");
+    assert!(!ran, "must not run a blocking vendor update");
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn check_update_background_is_noop_under_privacy() {
+    clear_installer_test_escape_env();
+    assert!(vendor_auto_update_forbidden());
+    let cfg = dummy_update_config();
+    let bg = check_update_background(&cfg).await;
+    assert!(
+        bg.update.is_none(),
+        "background check must not surface a vendor update"
+    );
+    assert!(
+        bg.download.is_none(),
+        "background check must not spawn a download child"
+    );
 }
 
 // ──────────────────────────────────────────────────────────────────────
