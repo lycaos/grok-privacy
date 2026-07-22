@@ -266,7 +266,7 @@ pub struct PagerLocalSnapshot {
     pub plan_mode_active: bool,
     /// `[cli].show_tips` mirror; `None` means no TOML override, so the default `true` applies.
     pub show_tips: Option<bool>,
-    /// `[cli].auto_update` mirror; `None` means no TOML override, so the default `true` applies.
+    /// `[cli].auto_update` mirror; `None` means no TOML override, so the default `false` applies in Grok Privacy (no silent x.ai channel updates).
     pub auto_update: Option<bool>,
     /// Process-wide vim-mode scrollback flag.
     /// Mirrors `appearance::cache::load_vim_mode()` at snapshot time.
@@ -299,6 +299,7 @@ impl Default for PagerLocalSnapshot {
             auto_mode: false,
             current_model_name: None,
             available_models: Vec::new(),
+            // Privacy build: opt-out by default.
             coding_data_sharing_opt_out: true,
             coding_data_sharing_lock: None,
             plan_mode_active: false,
@@ -678,7 +679,7 @@ pub fn current_value_for(
         )),
         // CLI batch: snapshot mirrors; `None` means the effective default `true`
         "show_tips" => Some(SettingValue::Bool(pager.show_tips.unwrap_or(true))),
-        "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(true))),
+        "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(false))),
         // fork_secondary_model: the baseline value folds to the empty string
         // The mirror persists the ModelId slug but the DynamicEnum canonicals are catalog display names, so resolve via the snapshot
         // A stale id passes through raw
@@ -932,15 +933,12 @@ mod tests {
                         "max_thoughts_width default drifts from UiConfig::default()",
                     );
                 }
-                // coding_data_sharing: no UiConfig field; the default is pinned against auth metadata (opt_out=true reads as "opt-out")
+                // coding_data_sharing: no UiConfig field; the privacy default is opt-out (auth metadata opt_out=true reads as "opt-out")
                 ("coding_data_sharing", SettingKind::Enum { default, .. }) => {
                     let expected = "opt-out";
                     assert_eq!(
                         *default, expected,
-                        "coding_data_sharing registry default must be 'opt-out' — \
-                         the on-disk source of truth is `AuthEntry::coding_data_retention_opt_out: \
-                         bool` (defaults to `true`, i.e. user has opted out until they \
-                         explicitly share or the server opts them in)",
+                        "coding_data_sharing registry default must be 'opt-out' in privacy build",
                     );
                 }
                 // CLI batch: fields live on CliConfig, not UiConfig.
@@ -950,9 +948,9 @@ mod tests {
                 }
                 ("auto_update", SettingKind::Bool { default }) => {
                     assert!(
-                        *default,
-                        "auto_update registry default must be true \
-                         (matches auto_update.rs's `.unwrap_or(true)`)"
+                        !*default,
+                        "auto_update registry default must be false in Grok Privacy \
+                         (no silent x.ai channel updates)"
                     );
                 }
                 // vim_mode: Option<bool>; None reads as false

@@ -1,4 +1,7 @@
 //! `/privacy`: open the "Coding data, retention, and training" setting.
+//!
+//! In Grok Privacy the setting is locked to opt-out (single choice). `/privacy`
+//! still opens that row so the lock is visible; args are ignored.
 
 use crate::app::actions::Action;
 use crate::slash::command::{CommandExecCtx, CommandResult, SlashCommand, slash_meta};
@@ -11,12 +14,12 @@ pub struct PrivacyCommand;
 impl SlashCommand for PrivacyCommand {
     slash_meta! {
         name: "privacy",
-        // Reads as the row it opens: "Coding data, retention, and training".
-        description: "Open coding data, retention, and training settings",
+        // Reads as the row it opens; the privacy build locks that row to opt-out.
+        description: "Open coding data retention settings (locked to opt-out)",
         usage: "/privacy",
     }
 
-    /// Trailing text is ignored, not rejected: `/privacy opt-in` from muscle memory should land on the page, not error.
+    /// Trailing text is ignored, not rejected: `/privacy opt-in` from muscle memory should land on the page, not error. The page itself has no opt-in.
     fn run(&self, _ctx: &mut CommandExecCtx, _args: &str) -> CommandResult {
         CommandResult::Action(Action::OpenSettingsFocus {
             key: CODING_DATA_SHARING_KEY,
