@@ -85,14 +85,10 @@ impl TelemetryClient {
         subscription_tier: Option<String>,
         http_client: reqwest::Client,
     ) -> Self {
-        let mixpanel = if config.mixpanel_enabled {
-            config
-                .mixpanel_token
-                .as_ref()
-                .map(|token| Arc::new(Mixpanel::with_client(token.as_str(), http_client.clone())))
-        } else {
-            None
-        };
+        // Grok Privacy: never construct a Mixpanel client. `Mixpanel::{track,engage}`
+        // are also no-ops as a second line of defense.
+        let _ = (config.mixpanel_enabled, config.mixpanel_token.as_ref());
+        let mixpanel: Option<Arc<Mixpanel>> = None;
         let deployment_id = deployment_key
             .filter(|s| !s.is_empty())
             .map(|k| deployment_id_from_key(&k));
