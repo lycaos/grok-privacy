@@ -364,7 +364,9 @@ report_conflict() {
 # gestionnaire d'erreur (restore_branch) l'écrasait aussi. On refuse de démarrer
 # plutôt que de détruire.
 require_clean_worktree() {
-  local why="${1:-l'apply détacherait HEAD et écraserait ces fichiers}"
+  # Pas d'apostrophe dans ce défaut : bash ouvre une chaîne simple-quotée à
+  # l'intérieur de ${1:-…}, même sous guillemets, et avale la suite du script.
+  local why="${1:-un apply détacherait HEAD et écraserait ces fichiers}"
   local dirty
   dirty="$(git status --porcelain --untracked-files=no 2>/dev/null || true)"
   [[ -z "$dirty" ]] || {
