@@ -264,24 +264,6 @@ local_time() {
   date -d "$ts" '+%Y-%m-%d %H:%M %Z' 2>/dev/null || printf '%s' "$ts"
 }
 
-# Un « failure » ne dit pas pourquoi. GitHub range la raison dans l'annotation
-# du job — y compris quand rien n'a démarré (compte verrouillé, runner refusé),
-# cas où `gh run view --log-failed` ne rend rien et où l'API des logs répond
-# BlobNotFound. C'est justement là que la sonde doit parler.
-run_failure_reason() {
-  local rid="$1" jid msg
-  jid="$(gh api "repos/${GH_REPO}/actions/runs/${rid}/jobs" \
-           --jq '[.jobs[] | select(.conclusion == "failure") | .id] | first // empty' \
-           2>/dev/null || true)"
-  if [[ -z "$jid" ]]; then return 0; fi
-  msg="$(gh api "repos/${GH_REPO}/check-runs/${jid}/annotations" \
-           --jq '[.[] | select(.annotation_level == "failure") | .message] | first // empty' \
-           2>/dev/null || true)"
-  if [[ -z "$msg" ]]; then return 0; fi
-  warn "raison du dernier échec : ${msg%%$'\n'*}"
-  return 0
-}
-
 # La sonde ne montrait que l'amont. Or ce pipeline s'arrête à l'install locale :
 # ce qui manque en aval (branche non poussée, CI rouge, aucune release) est
 # invisible ici alors que c'est là que ça bloque.
@@ -325,19 +307,17 @@ downstream_state() {
     warn "aucune release publiée sur $GH_REPO"
   fi
   runs="$(gh run list -R "$GH_REPO" --limit 5 \
-            --json databaseId,displayTitle,conclusion,status,createdAt \
-            --jq '.[] | [.databaseId, ((.conclusion // "") | if . == "" then null else . end) // (.status // "?"), .createdAt, .displayTitle] | @tsv' \
+            --json displayTitle,conclusion,status,createdAt \
+            --jq '.[] | [((.conclusion // "") | if . == "" then null else . end) // (.status // "?"), .createdAt, .displayTitle] | @tsv' \
             2>/dev/null || true)"
   if [[ -n "$runs" ]]; then
     info "Derniers runs CI :"
-    local rid concl created title first_failed=""
-    while IFS=$'\t' read -r rid concl created title; do
+    local concl created title
+    while IFS=$'\t' read -r concl created title; do
       printf '    %-12s %s  %s\n' "$concl" "$(local_time "$created")" "$title"
-      if [[ -z "$first_failed" && "$concl" == "failure" ]]; then first_failed="$rid"; fi
     done <<< "$runs"
-    if [[ -n "$first_failed" ]]; then run_failure_reason "$first_failed"; fi
   else
-    info "aucun run CI lisible (droits, réseau, ou compte GitHub bloqué)"
+    info "aucun run CI lisible (droits ou réseau) — voir l'onglet Actions"
   fi
 }
 

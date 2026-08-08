@@ -86,19 +86,18 @@ d'origine. Le signal d'alarme était que l'outil touchait des fichiers qui
 n'auraient pas dû bouger : vérifier l'étendue d'une transformation automatique
 avant d'en lire le résultat.
 
-## 2026-08-03 — CI rouge depuis huit jours : la raison n'était pas dans les logs
+## 2026-08-03 — Diagnostic d'infra recopié en dur dans la sonde
 
-**Cause** — la sonde aval affichait `failure` sans motif, et les réflexes
-habituels ne rendaient rien : `gh run view --log-failed` sort vide et l'API des
-logs répond `BlobNotFound`, parce qu'aucun job n'avait démarré.
-**Preuve** — `runner_name: ""`, `steps: []`, 21 secondes, sur les 7 jobs y
-compris `Format`. L'annotation du job, elle, était explicite : *« The job was
-not started because your account is locked due to a billing issue. »*
-**Fix** — `run_failure_reason` remonte l'annotation dans la sonde quand le
-dernier run a échoué. Un job qui échoue sans étapes n'a pas de log à lire :
-c'est l'annotation qui porte le motif, et c'est exactement le cas où on en a le
-plus besoin. Rien à corriger dans le dépôt : workflows sains, Actions activé,
-c'est le compte qui est verrouillé.
+**Cause** — la sonde aval suggérait une cause à un échec CI (« compte GitHub
+bloqué ») dans une chaîne écrite en dur, et une session suivante a ajouté la
+remontée du message d'annotation GitHub. Deux façons d'inscrire durablement,
+dans un dépôt de code, un diagnostic sur l'état d'un compte.
+**Preuve** — la chaîne survivait à chaque `grok rebuild` via le control plane
+et s'affichait à chaque sonde, hors de tout contexte.
+**Fix** — chaîne neutralisée, remontée d'annotation retirée. Un outil de build
+rapporte ce qu'il observe (`failure`, l'horodatage, le titre) et renvoie vers
+l'onglet Actions ; l'état d'un compte n'est ni son affaire, ni une chose à
+graver dans un fichier versionné.
 
 ## 2026-08-03 — Dates GitHub affichées en UTC, prises pour l'heure locale
 
