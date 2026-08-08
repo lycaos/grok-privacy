@@ -86,6 +86,20 @@ d'origine. Le signal d'alarme était que l'outil touchait des fichiers qui
 n'auraient pas dû bouger : vérifier l'étendue d'une transformation automatique
 avant d'en lire le résultat.
 
+## 2026-08-08 — Asset Windows jamais publiable : deux noms pour la même chose
+
+**Cause** — la matrice de `release.yml` téléversait `grokp-windows-x86_64.exe`,
+le job de publication retéléchargeait `grok-windows-x86_64.exe`. L'asset étant
+`optional: true`, rien ne cassait : la release sortait sans Windows.
+**Preuve** — les cinq occurrences du fichier, dont une seule en `grokp-`, contre
+`docs/DISTRIBUTION.md` qui se déclare canon et dit `grok-windows-x86_64.exe`.
+Le garde-fou existait mais imputait l'absence à `MSVC LNK4319` : un bug d'une
+ligne déguisé en bug dur connu, donc jamais cherché.
+**Fix** — nom aligné sur le canon, dans le fichier live **et** dans
+`maint/control/.github/workflows/release.yml` qui l'écrase après chaque apply ;
+avertissement reformulé pour ne plus imputer de cause. Un message qui affirme
+une cause qu'il n'a pas vérifiée coûte plus cher que pas de message du tout.
+
 ## 2026-08-03 — Diagnostic d'infra recopié en dur dans la sonde
 
 **Cause** — la sonde aval suggérait une cause à un échec CI (« compte GitHub

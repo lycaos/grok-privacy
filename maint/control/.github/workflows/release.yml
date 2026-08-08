@@ -1,9 +1,9 @@
 # Amorce : build + publish des assets client (Linux + Windows).
 # Canon : docs/DISTRIBUTION.md
 #
-# Assets (contrat dur, alignés privacy-client-update.sh) :
+# Assets (contrat dur, alignés docs/DISTRIBUTION.md et privacy-client-update.sh) :
 #   grok-linux-x86_64
-#   grokp-windows-x86_64.exe
+#   grok-windows-x86_64.exe
 #
 # Triggers :
 #   - push tag v*  → build + GitHub Release
@@ -62,7 +62,7 @@ jobs:
             bin_name: grok
             optional: false
           - os: windows-latest
-            asset_name: grokp-windows-x86_64.exe
+            asset_name: grok-windows-x86_64.exe
             bin_name: grok.exe
             optional: true
 
@@ -226,7 +226,7 @@ jobs:
             exit 1
           }
           if [[ ! -f dist/grok-windows-x86_64.exe ]]; then
-            echo "::warning::Windows asset missing (MSVC LNK4319) — releasing Linux only"
+            echo "::warning::Windows asset missing — releasing Linux only; check the windows-latest build job"
           fi
 
       - name: Create / update GitHub Release
