@@ -1,0 +1,159 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lycaos <caraboune@gmail.com>
+Date: Fri, 17 Jul 2026 01:03:26 -0700
+Subject: [PATCH] product-identity: CLI binary name and entry surface
+
+Gork-Patch-Id: product-identity
+Gork-Invariant: product-cli-grok
+Gork-Risk: medium
+---
+ crates/codegen/xai-grok-pager-bin/Cargo.toml  | 18 ++++++-----
+ crates/codegen/xai-grok-pager-bin/src/main.rs |  8 +++--
+ .../xai-grok-pager/src/completions_cmd.rs     | 31 +++++++++++++------
+ 3 files changed, 38 insertions(+), 19 deletions(-)
+
+diff --git a/crates/codegen/xai-grok-pager-bin/Cargo.toml b/crates/codegen/xai-grok-pager-bin/Cargo.toml
+index 9cf3cc51256b4566c1b0b029d34dac3fd71b7da1..f5790aed0c264224864cf825e1ebee6ee71ed480 100644
+--- a/crates/codegen/xai-grok-pager-bin/Cargo.toml
++++ b/crates/codegen/xai-grok-pager-bin/Cargo.toml
+@@ -3,14 +3,18 @@ name = "xai-grok-pager-bin"
+ version = "0.2.118"
+ edition.workspace = true
+ license = "Apache-2.0"
+-authors = ["xAI"]
+-default-run = "xai-grok-pager"
++authors = ["Grok Privacy contributors"]
++default-run = "grok"
++
++# Composition-root binary for the Grok Privacy TUI (privacy fork of Grok Build).
++# Primary artifact: `grok`. Alias `xai-grok-pager` kept for path/compat.
++# This package links the pager library and optional `xai-grok-pager-minimal`
++# render mode (minimal depends on pager, so pager cannot depend back — cargo
++# cycle). The binary installs the minimal-mode IoC hooks at startup.
++[[bin]]
++name = "grok"
++path = "src/main.rs"
+ 
+-# Composition-root binary for the Grok Build TUI. The artifact is still named
+-# `xai-grok-pager`. This package exists so the binary can link both the pager
+-# library and the optional `xai-grok-pager-minimal` render mode: `minimal`
+-# depends on `xai-grok-pager`, so the pager library cannot depend back on it
+-# (cargo cycle). The binary installs the minimal-mode IoC hooks at startup.
+ [[bin]]
+ name = "xai-grok-pager"
+ path = "src/main.rs"
+diff --git a/crates/codegen/xai-grok-pager-bin/src/main.rs b/crates/codegen/xai-grok-pager-bin/src/main.rs
+index 49bb94cfffc0d92ebfc5cfc7f4e340bed84da630..8c7b19496c60ff6c02b460196a31b9c454b52a63 100644
+--- a/crates/codegen/xai-grok-pager-bin/src/main.rs
++++ b/crates/codegen/xai-grok-pager-bin/src/main.rs
+@@ -3,7 +3,8 @@
+     unused_variables,
+     unused_mut,
+     unreachable_code,
+-    dead_code
++    dead_code,
++    clippy::possible_missing_else
+ )]
+ #[cfg(all(feature = "jemalloc", unix))]
+ #[global_allocator]
+@@ -1749,7 +1750,8 @@ fn install_heap_profile_hooks() {
+ }
+ fn version_text(channel_label: &str) -> String {
+     format!(
+-        "grok {}\n",
++        "{} {}\n",
++        xai_grok_version::PRODUCT_CLI,
+         xai_grok_version::display_version_with_commit(env!("VERSION_WITH_COMMIT"), channel_label,)
+     )
+ }
+@@ -2545,7 +2547,7 @@ mod tests {
+             let mut output = Vec::new();
+             write_version(&mut output, label).unwrap();
+             let output = String::from_utf8(output).unwrap();
+-            assert!(output.starts_with("grok "));
++            assert!(output.starts_with(&format!("{} ", xai_grok_version::PRODUCT_CLI)));
+             assert!(output.contains(env!("VERSION_WITH_COMMIT")));
+             assert!(output.ends_with(expected_suffix), "{output:?}");
+         }
+diff --git a/crates/codegen/xai-grok-pager/src/completions_cmd.rs b/crates/codegen/xai-grok-pager/src/completions_cmd.rs
+index 176f49dcdd81ea2c20aa599dcbd9cbf2e7362093..871fad2acadf35ec5a040b1a98e76778832a36c7 100644
+--- a/crates/codegen/xai-grok-pager/src/completions_cmd.rs
++++ b/crates/codegen/xai-grok-pager/src/completions_cmd.rs
+@@ -58,18 +58,25 @@ fn fix_zsh_root_prompt_positional(script: &str) -> String {
+             out.push_str(line);
+             out.push('\n');
+         });
++    // The curcontext pattern embeds the command name clap generated the
++    // script under — Grok Privacy ships as PRODUCT_CLI ("grok", "grokp" on
++    // Windows), so the pattern must come from it, not be hard-coded.
++    let cli = xai_grok_version::PRODUCT_CLI;
+     for (from, to) in [
+         (
+-            r#"words=($line[2] "${words[@]}")"#,
+-            r#"words=($line[1] "${words[@]}")"#,
++            format!(r#"words=($line[2] "${{words[@]}}")"#),
++            format!(r#"words=($line[1] "${{words[@]}}")"#),
+         ),
+         (
+-            r#"curcontext="${curcontext%:*:*}:grok-command-$line[2]:""#,
+-            r#"curcontext="${curcontext%:*:*}:grok-command-$line[1]:""#,
++            format!(r#"curcontext="${{curcontext%:*:*}}:{cli}-command-$line[2]:""#),
++            format!(r#"curcontext="${{curcontext%:*:*}}:{cli}-command-$line[1]:""#),
++        ),
++        (
++            "case $line[2] in".to_string(),
++            "case $line[1] in".to_string(),
+         ),
+-        (r#"case $line[2] in"#, r#"case $line[1] in"#),
+     ] {
+-        out = out.replacen(from, to, 1);
++        out = out.replacen(&from, &to, 1);
+     }
+     out
+ }
+@@ -103,6 +110,7 @@ mod tests {
+         );
+ 
+         let fixed = fix_zsh_root_prompt_positional(&raw);
++        let cli = xai_grok_version::PRODUCT_CLI;
+         assert!(
+             !fixed.contains("::prompt"),
+             "prompt positional must not appear in the emitted zsh script"
+@@ -112,15 +120,20 @@ mod tests {
+             "root dispatch must be shifted to $line[1]"
+         );
+         assert!(
+-            fixed.contains(r#"curcontext="${curcontext%:*:*}:grok-command-$line[1]:""#),
++            fixed.contains(&format!(
++                r#"curcontext="${{curcontext%:*:*}}:{cli}-command-$line[1]:""#
++            )),
+             "root dispatch context must use $line[1]"
+         );
+         // Subcommand dispatch blocks (already on $line[1]) must survive.
+         assert!(
+-            fixed.contains("grok-worktree-command-$line[1]"),
++            fixed.contains(&format!("{cli}-worktree-command-$line[1]")),
+             "nested subcommand dispatch must be untouched"
+         );
+         // The subcommand list itself must still be offered at the root.
+-        assert!(fixed.contains("_grok_commands"), "root command list intact");
++        assert!(
++            fixed.contains(&format!("_{cli}_commands")),
++            "root command list intact"
++        );
+     }
+ }
+
+base-commit: 780d1388fff103ff0db0d8c14de65af6225b4860
+prerequisite-patch-id: b36db0c7d3014d518e86e1c95d78b6c8d2485fb1
+prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
+prerequisite-patch-id: 4dc34e72444bda2b99783d8ac4de53f6a4d4288e
+prerequisite-patch-id: 586aad99b53b40e1e17c05396622d51f302e7890
+prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
+prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
+prerequisite-patch-id: b302baa9b1f767c9d35467989b8aa2eb2cbbf679
+prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
+-- 
+2.43.0
+
