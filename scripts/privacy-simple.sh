@@ -1036,32 +1036,85 @@ do_publish_release() {
   return 0
 }
 
-# La seule action irréversible du script. Sauvegarde d'abord, pousse ensuite,
-# et ne déplace main en local qu'une fois le distant accepté : un push refusé
-# ne doit pas laisser un main déplacé derrière lui.
+# Deux situations que rien ne permet de confondre, et que le menu doit
+# distinguer lui-même : empiler des commits sur la branche sync laisse
+# origin/main ancêtre de la branche (avance rapide, rien de réécrit), alors
+# qu'un saut de version amont rejoue la série sur une base neuve et rend les
+# histoires disjointes (remplacement, force push, sauvegarde).
+#
+#   ff        origin/main est un ancêtre       → push simple, pas de sauvegarde
+#   replace   histoires disjointes             → sauvegarde + --force-with-lease
+#   create    origin/main n'existe pas         → push simple
+#   uptodate  déjà publié                      → rien
+main_publish_kind() {
+  local br target remote_sha
+  br="$(git branch --show-current 2>/dev/null || true)"
+  if [[ -z "$br" || "$br" == "main" ]]; then printf 'none'; return 0; fi
+  remote_sha="$(git rev-parse --verify --quiet "refs/remotes/${ORIGIN_REMOTE}/main" || true)"
+  if [[ -z "$remote_sha" ]]; then printf 'create'; return 0; fi
+  target="$(git rev-parse "$br")"
+  if [[ "$target" == "$remote_sha" ]]; then printf 'uptodate'; return 0; fi
+  if git merge-base --is-ancestor "$remote_sha" "$target" 2>/dev/null; then
+    printf 'ff'
+  else
+    printf 'replace'
+  fi
+}
+
+menu_confirm_yes() {
+  local ans=""
+  printf '%s Confirmer ? [o/N]%s ' "$C" "$Z"
+  if ! IFS= read -r ans; then printf '\n'; return 1; fi
+  [[ "$ans" == o || "$ans" == O || "$ans" == oui || "$ans" == y || "$ans" == Y ]]
+}
+
+# Sauvegarde d'abord, pousse ensuite, et ne déplace main en local qu'une fois
+# le distant accepté : un push refusé ne doit pas laisser un main déplacé
+# derrière lui.
 menu_replace_main() {
-  local br target main_sha remote_sha old_v new_v backup existing
+  local br target main_sha remote_sha old_v new_v backup existing kind
   br="$(git branch --show-current 2>/dev/null || true)"
   if [[ -z "$br" ]]; then warn "HEAD détachée — rien à publier"; return 0; fi
-  target="$(git rev-parse "$br")"
-  main_sha="$(git rev-parse --verify --quiet main || true)"
   if [[ "$br" == "main" ]]; then warn "déjà sur main — utiliser « pousser la branche courante »"; return 0; fi
-  if [[ "$target" == "$main_sha" ]]; then ok "main pointe déjà sur $br"; return 0; fi
 
   git fetch --quiet "$ORIGIN_REMOTE" main 2>/dev/null \
     || warn "fetch $ORIGIN_REMOTE échoué — le bail est calculé sur l'état local connu"
+
+  target="$(git rev-parse "$br")"
+  main_sha="$(git rev-parse --verify --quiet main || true)"
   remote_sha="$(git rev-parse --verify --quiet "refs/remotes/${ORIGIN_REMOTE}/main" || true)"
-  old_v="$(manifest_version_at "${main_sha:-HEAD}")"
+  kind="$(main_publish_kind)"
+  if [[ "$kind" == "uptodate" ]]; then ok "origin/main pointe déjà sur $br"; return 0; fi
+
+  old_v="$(manifest_version_at "${remote_sha:-${main_sha:-HEAD}}")"
   new_v="$(manifest_version_at "$target")"
+
+  # Avance rapide : rien n'est réécrit, l'ancien main reste joignable depuis le
+  # nouveau. Ni sauvegarde ni mot de passe cérémoniel — ce serait mentir sur la
+  # nature du geste.
+  if [[ "$kind" == "ff" || "$kind" == "create" ]]; then
+    printf '\n%s── Publication de main (avance rapide) ──%s\n' "$B" "$Z"
+    printf '  avant  %s/main = %s  (%s)\n' "$ORIGIN_REMOTE" "${remote_sha:0:12}" "${old_v:-?}"
+    printf '  après  %s/main = %s  (%s)   ← %s\n' "$ORIGIN_REMOTE" "${target:0:12}" "${new_v:-?}" "$br"
+    printf '  %s commit(s) ajouté(s), aucun réécrit :\n' "$(git rev-list --count "${remote_sha:-$target}..$target" 2>/dev/null || echo '?')"
+    git log --oneline "${remote_sha:-$target}..$target" 2>/dev/null | sed 's/^/    /'
+    if ! menu_confirm_yes; then info "annulé — rien n'a été poussé"; return 0; fi
+    local ff_rc=0
+    git push "$ORIGIN_REMOTE" "${br}:main" || ff_rc=$?
+    if [[ "$ff_rc" -ne 0 ]]; then
+      err "push refusé (code $ff_rc) — rien n'a changé"
+      return 0
+    fi
+    git branch -f main "$target"
+    git branch --set-upstream-to="${ORIGIN_REMOTE}/main" main >/dev/null 2>&1 || true
+    ok "main = $br (${target:0:12}) — avance rapide publiée sur $ORIGIN_REMOTE"
+    return 0
+  fi
 
   printf '\n%s── Remplacement de main ──%s\n' "$B" "$Z"
   printf '  avant  main = %s  (%s)\n' "${main_sha:0:12}" "${old_v:-?}"
   printf '  après  main = %s  (%s)   ← %s\n' "${target:0:12}" "${new_v:-?}" "$br"
-  if [[ -n "$remote_sha" ]]; then
-    printf '  %s/main = %s  → sera réécrit\n' "$ORIGIN_REMOTE" "${remote_sha:0:12}"
-  else
-    printf '  %s/main absent → création\n' "$ORIGIN_REMOTE"
-  fi
+  printf '  %s/main = %s  → sera réécrit (histoires disjointes)\n' "$ORIGIN_REMOTE" "${remote_sha:0:12}"
 
   backup=""
   if [[ -n "$main_sha" ]]; then
@@ -1094,11 +1147,7 @@ menu_replace_main() {
   fi
 
   local push_rc=0
-  if [[ -n "$remote_sha" ]]; then
-    git push --force-with-lease=main:"$remote_sha" "$ORIGIN_REMOTE" "${br}:main" || push_rc=$?
-  else
-    git push "$ORIGIN_REMOTE" "${br}:main" || push_rc=$?
-  fi
+  git push --force-with-lease=main:"$remote_sha" "$ORIGIN_REMOTE" "${br}:main" || push_rc=$?
   if [[ "$push_rc" -ne 0 ]]; then
     err "push refusé (code $push_rc) — main local n'a pas bougé, $ORIGIN_REMOTE non plus"
     return 0
@@ -1115,9 +1164,19 @@ menu_downstream() {
   while true; do
     downstream_state
     printf '\n'
+    # Le libellé dit ce qui va réellement se passer : annoncer « force push »
+    # sur une avance rapide fait couper à raison.
+    local main_lbl
+    case "$(main_publish_kind)" in
+      ff)       main_lbl="Avancer main sur la branche courante (avance rapide)" ;;
+      replace)  main_lbl="Remplacer main par la branche courante (force push)" ;;
+      create)   main_lbl="Créer main sur $ORIGIN_REMOTE depuis la branche courante" ;;
+      uptodate) main_lbl="main est déjà publié sur la branche courante" ;;
+      *)        main_lbl="Publier main (indisponible : HEAD détachée ou déjà sur main)" ;;
+    esac
     items=(
       "Pousser la branche courante sur $ORIGIN_REMOTE"
-      "Remplacer main par la branche courante, puis force push"
+      "$main_lbl"
       "Publier une release (Linux + Windows)"
       "Rafraîchir"
       "Retour"
