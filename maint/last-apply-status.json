@@ -1,8 +1,8 @@
 {
-  "branch": "sync/upstream-0.2.118-780d138",
-  "upstream": "780d1388fff103ff0db0d8c14de65af6225b4860",
-  "version": "0.2.118",
-  "source_rev": "64c4de99cc822b25ce9c54ab5a4f372093d0885d",
+  "branch": "sync/upstream-1.0.0-afbc0fb",
+  "upstream": "afbc0fb710320c7add294c2106d447ecc3e3af2e",
+  "version": "1.0.0",
+  "source_rev": "3e620a76a5f374ce644dc7c87f7e990c68348218",
   "applied": [
     "0001-privacy-core.patch",
     "0010-telemetry-hard-off.patch",
