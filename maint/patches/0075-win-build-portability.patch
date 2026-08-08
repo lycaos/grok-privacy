@@ -26,10 +26,10 @@ Gork-Risk: low
  1 file changed, 21 insertions(+), 8 deletions(-)
 
 diff --git a/crates/build/xai-proto-build/src/lib.rs b/crates/build/xai-proto-build/src/lib.rs
-index 66613d040959cb83661872f4af395aada3646566..7046725113400013c8d678d59c81eee9e1b9a33f 100644
+index 3c36bc9d9af20ef9847025ceb8f1fcef4ac11bd5..c8dc2fddd35ad8f6b1293519146e69e361841ad7 100644
 --- a/crates/build/xai-proto-build/src/lib.rs
 +++ b/crates/build/xai-proto-build/src/lib.rs
-@@ -116,12 +116,20 @@ impl XaiProtoBuilder {
+@@ -125,12 +125,20 @@ impl XaiProtoBuilder {
              );
          }
  
@@ -52,7 +52,7 @@ index 66613d040959cb83661872f4af395aada3646566..7046725113400013c8d678d59c81eee9
  
              // Add protoc's well-known types include directory first (if found).
              // This is needed for Bazel sandboxed builds where protoc and its
-@@ -148,21 +156,26 @@ impl XaiProtoBuilder {
+@@ -157,21 +165,26 @@ impl XaiProtoBuilder {
              }
  
              let output =
@@ -86,11 +86,11 @@ index 66613d040959cb83661872f4af395aada3646566..7046725113400013c8d678d59c81eee9
                  }
  
 
-base-commit: 780d1388fff103ff0db0d8c14de65af6225b4860
-prerequisite-patch-id: b36db0c7d3014d518e86e1c95d78b6c8d2485fb1
+base-commit: afbc0fb710320c7add294c2106d447ecc3e3af2e
+prerequisite-patch-id: 93d0809d4523052785da7299f88492f13cdcd6a9
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
-prerequisite-patch-id: 4dc34e72444bda2b99783d8ac4de53f6a4d4288e
+prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 586aad99b53b40e1e17c05396622d51f302e7890
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f

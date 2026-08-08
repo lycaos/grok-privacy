@@ -39,7 +39,7 @@ index 0cc1ece75532c4ce34b2499a2b268a1244bc7aa5..b8ef8d14dd08bd33d191731c95a94d4c
  anyhow = { workspace = true }
  futures = { workspace = true }
 diff --git a/crates/codegen/xai-grok-update/src/auto_update.rs b/crates/codegen/xai-grok-update/src/auto_update.rs
-index 2886a9da5ca13632e0cc7b1fb0444b6462c5be1e..5803ba66128cc8e327b1165950a03334461a1394 100644
+index a4abba95c6a89a56dae234c720ac3e631dd998c7..3ece29a28b8f1da0c367093f8c112b7da7d99dfc 100644
 --- a/crates/codegen/xai-grok-update/src/auto_update.rs
 +++ b/crates/codegen/xai-grok-update/src/auto_update.rs
 @@ -26,22 +26,67 @@ pub enum UpdateRunMode {
@@ -308,7 +308,7 @@ index 2886a9da5ca13632e0cc7b1fb0444b6462c5be1e..5803ba66128cc8e327b1165950a03334
      install_internal_from_bases(target, update_config, crate::version::CLI_BASE_URLS).await
  }
  
-@@ -2271,7 +2361,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
+@@ -2332,7 +2422,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
      warn_if_other_grok_processes_running();
  
      let version_arg = match target {
@@ -317,7 +317,7 @@ index 2886a9da5ca13632e0cc7b1fb0444b6462c5be1e..5803ba66128cc8e327b1165950a03334
          None => {
              // All current callers resolve the version via get_latest_version
              // (which applies max(stable, alpha) for the alpha channel) before
-@@ -2282,7 +2372,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
+@@ -2343,7 +2433,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
                  "install_npm called without a resolved version, falling back to dist-tag"
              );
              format!(
@@ -326,7 +326,7 @@ index 2886a9da5ca13632e0cc7b1fb0444b6462c5be1e..5803ba66128cc8e327b1165950a03334
                  if channel == "alpha" {
                      "alpha"
                  } else {
-@@ -2361,6 +2451,11 @@ pub async fn run_update(
+@@ -2422,6 +2512,11 @@ pub async fn run_update(
      channel_switch: Option<&str>,
      update_config: &mut UpdateConfig,
  ) -> Result<Option<String>> {
@@ -338,7 +338,7 @@ index 2886a9da5ca13632e0cc7b1fb0444b6462c5be1e..5803ba66128cc8e327b1165950a03334
      apply_channel_switch(channel_switch, update_config).await;
      let installer = match get_installer().await {
          Some(i) => i,
-@@ -3563,40 +3658,35 @@ mod tests {
+@@ -3624,40 +3719,35 @@ mod tests {
          let hint = reinstall_hint("npm");
          assert!(hint.contains("npm i -g"), "should suggest npm i -g: {hint}");
          assert!(
@@ -394,8 +394,8 @@ index 2886a9da5ca13632e0cc7b1fb0444b6462c5be1e..5803ba66128cc8e327b1165950a03334
      }
  
      #[test]
-@@ -3613,6 +3703,241 @@ mod tests {
-         assert_eq!(hint, reinstall_hint("internal"));
+@@ -3701,6 +3791,241 @@ mod tests {
+         assert_eq!(truncate_err("abcdefghij", 8), "abcde...");
      }
  
 +    // ──────────────────────────────────────────────────────────────────────
@@ -692,7 +692,7 @@ index 9845e49f8c839f88525d460d3e13b178c9f61ce8..4eac0212e3f089af5b67a972479b0697
          path
      })
 diff --git a/crates/codegen/xai-grok-update/tests/test_blitz_cancel.rs b/crates/codegen/xai-grok-update/tests/test_blitz_cancel.rs
-index abdc72b8dde4a936d7b952b42cf71f3a19fb010e..1811dc94dbef203504fc3d254e228a510660ae49 100644
+index 7db620f1b9699bbf472a70e0abb48273318b7fe5..55ecc675c4bacc641ee2c96c6eef619f89b51009 100644
 --- a/crates/codegen/xai-grok-update/tests/test_blitz_cancel.rs
 +++ b/crates/codegen/xai-grok-update/tests/test_blitz_cancel.rs
 @@ -1,3 +1,7 @@
@@ -740,7 +740,7 @@ index db207ccd7c8a2aaf1cc910bbe5dd49851818f1eb..ca3032d6fcb76605d95bb1c466fc50e1
  //!
  //! Covers every combination of:
 diff --git a/crates/codegen/xai-grok-update/tests/test_install_internal.rs b/crates/codegen/xai-grok-update/tests/test_install_internal.rs
-index 21dacc6cf8a164f86878b8740e96bf657f4cba48..058dd00aba01846605df0c8067a6fd13566cfa7b 100644
+index 7bbf9f2a482fa939436d1b1f78f446798e3e89cd..930ccae053c5774a05f07bbf57d8ca49187d81f1 100644
 --- a/crates/codegen/xai-grok-update/tests/test_install_internal.rs
 +++ b/crates/codegen/xai-grok-update/tests/test_install_internal.rs
 @@ -1,3 +1,7 @@
@@ -784,11 +784,11 @@ index b031ee7b03995634ff473163fe48fe7a05abdb57..1acf50f3fbd51e74131f0049208ca957
          log[0]
      );
 
-base-commit: 780d1388fff103ff0db0d8c14de65af6225b4860
-prerequisite-patch-id: b36db0c7d3014d518e86e1c95d78b6c8d2485fb1
+base-commit: afbc0fb710320c7add294c2106d447ecc3e3af2e
+prerequisite-patch-id: 93d0809d4523052785da7299f88492f13cdcd6a9
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
-prerequisite-patch-id: 4dc34e72444bda2b99783d8ac4de53f6a4d4288e
+prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 -- 
 2.43.0
 

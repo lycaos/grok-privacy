@@ -18,7 +18,7 @@ Gork-Risk: critical
  8 files changed, 102 insertions(+), 112 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager/src/settings/defs.rs b/crates/codegen/xai-grok-pager/src/settings/defs.rs
-index be928cef30622a547290c327cffff245eb8e5c91..c864c6986c03f0f864ef2b789e7b36fbc3156bd0 100644
+index 642d8c6438b2e062cd2ee521823d68e26c52a35b..5b564add3d8beb4685d78064da0a3410f8ea5f05 100644
 --- a/crates/codegen/xai-grok-pager/src/settings/defs.rs
 +++ b/crates/codegen/xai-grok-pager/src/settings/defs.rs
 @@ -130,20 +130,13 @@ const PERMISSION_MODE_CHOICES: &[EnumChoice] = &[
@@ -49,7 +49,7 @@ index be928cef30622a547290c327cffff245eb8e5c91..c864c6986c03f0f864ef2b789e7b36fb
  
  // ---------------------------------------------------------------------------
  // Plan-mode catalog.
-@@ -1141,11 +1134,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
+@@ -1155,11 +1148,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
              restart_required: false,
              hidden_in_minimal: false,
          },
@@ -62,7 +62,7 @@ index be928cef30622a547290c327cffff245eb8e5c91..c864c6986c03f0f864ef2b789e7b36fb
          // Do not put "telemetry" in keywords — that word is the config-file
          // analytics toggle (Monitoring / Configuration docs).
          SettingMeta {
-@@ -1153,10 +1142,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
+@@ -1167,10 +1156,7 @@ pub fn default_settings() -> Vec<SettingMeta> {
              category: SettingCategory::Privacy,
              owner: SettingOwner::Shell,
              label: "Coding data, retention, and training",
@@ -74,7 +74,7 @@ index be928cef30622a547290c327cffff245eb8e5c91..c864c6986c03f0f864ef2b789e7b36fb
              keywords: &[
                  "privacy",
                  "data",
-@@ -1164,7 +1150,6 @@ pub fn default_settings() -> Vec<SettingMeta> {
+@@ -1178,7 +1164,6 @@ pub fn default_settings() -> Vec<SettingMeta> {
                  "coding",
                  "retention",
                  "training",
@@ -82,7 +82,7 @@ index be928cef30622a547290c327cffff245eb8e5c91..c864c6986c03f0f864ef2b789e7b36fb
                  "opt-out",
              ],
              kind: SettingKind::Enum {
-@@ -1325,12 +1310,13 @@ pub fn default_settings() -> Vec<SettingMeta> {
+@@ -1339,12 +1324,13 @@ pub fn default_settings() -> Vec<SettingMeta> {
              category: SettingCategory::Advanced,
              owner: SettingOwner::Shell,
              label: "Auto-update",
@@ -100,7 +100,7 @@ index be928cef30622a547290c327cffff245eb8e5c91..c864c6986c03f0f864ef2b789e7b36fb
              hidden_in_minimal: false,
          },
 diff --git a/crates/codegen/xai-grok-pager/src/settings/registry.rs b/crates/codegen/xai-grok-pager/src/settings/registry.rs
-index 6659a051123b858e4085a1a80d855e9b58320c2e..a058084528182bbf84c3e5c14f442b0f54c7a37d 100644
+index c719471e28c9a30cb665415cba3155b29faf0280..8dd48dc5d706627ad4e55d3b877dc98007258e1b 100644
 --- a/crates/codegen/xai-grok-pager/src/settings/registry.rs
 +++ b/crates/codegen/xai-grok-pager/src/settings/registry.rs
 @@ -277,7 +277,8 @@ pub struct PagerLocalSnapshot {
@@ -121,16 +121,16 @@ index 6659a051123b858e4085a1a80d855e9b58320c2e..a058084528182bbf84c3e5c14f442b0f
              coding_data_sharing_opt_out: true,
              coding_data_sharing_lock: None,
              plan_mode_active: false,
-@@ -695,7 +697,7 @@ pub fn current_value_for(
+@@ -696,7 +698,7 @@ pub fn current_value_for(
          )),
          // CLI batch: snapshot mirrors; `None` → effective default `true`.
          "show_tips" => Some(SettingValue::Bool(pager.show_tips.unwrap_or(true))),
 -        "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(true))),
 +        "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(false))),
-         // fork_secondary_model: baseline value folds to empty string.
-         "fork_secondary_model" => Some(SettingValue::String({
-             let baseline = xai_grok_shell::models::default_model();
-@@ -923,16 +925,12 @@ mod tests {
+         // fork_secondary_model: baseline value folds to empty string. The
+         // mirror persists the ModelId slug but the DynamicEnum canonicals
+         // are catalog display names, so resolve via the snapshot; a stale
+@@ -939,16 +941,12 @@ mod tests {
                          "max_thoughts_width default drifts from UiConfig::default()",
                      );
                  }
@@ -149,7 +149,7 @@ index 6659a051123b858e4085a1a80d855e9b58320c2e..a058084528182bbf84c3e5c14f442b0f
                      );
                  }
                  // CLI batch: fields live on CliConfig, not UiConfig.
-@@ -942,9 +940,9 @@ mod tests {
+@@ -958,9 +956,9 @@ mod tests {
                  }
                  ("auto_update", SettingKind::Bool { default }) => {
                      assert!(
@@ -195,10 +195,10 @@ index 83cb440fc8861e47d7fe9b477e2da9404b627e0a..20157d55ddd429203441b4121b60d3c4
          CommandResult::Action(Action::OpenSettingsFocus {
              key: CODING_DATA_SHARING_KEY,
 diff --git a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
-index aed8b1b7f6bfae91a1e7598883a47357a5d38f8c..1b735854e27b69e2b582dd2d1c9f8584819e5419 100644
+index e971a3affaff8a2c7d530f6b60af0b6677655593..dec02ef6f4ab97dad8379be62271971c78802e98 100644
 --- a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
 +++ b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
-@@ -1977,7 +1977,7 @@ fn defaults_round_trip_through_registry() {
+@@ -2010,7 +2010,7 @@ fn defaults_round_trip_through_registry() {
              "voice_stt_language" => SettingValue::Enum("en"),
              "plan_mode" => SettingValue::Enum("off"),
              "show_tips" => SettingValue::Bool(true),
@@ -207,7 +207,7 @@ index aed8b1b7f6bfae91a1e7598883a47357a5d38f8c..1b735854e27b69e2b582dd2d1c9f8584
              "fork_secondary_model" => SettingValue::String(String::new()),
              "show_thinking_blocks" => SettingValue::Bool(true),
              "prompt_suggestions" => SettingValue::Bool(true),
-@@ -4703,7 +4703,7 @@ fn pr9_enter_on_coding_data_sharing_row_enters_picking_enum() {
+@@ -4737,7 +4737,7 @@ fn pr9_enter_on_coding_data_sharing_row_enters_picking_enum() {
              assert_eq!(
                  original_value,
                  &SettingValue::Enum("opt-out"),
@@ -216,7 +216,7 @@ index aed8b1b7f6bfae91a1e7598883a47357a5d38f8c..1b735854e27b69e2b582dd2d1c9f8584
              );
          }
          other => panic!("expected PickingEnum mode, got {other:?}"),
-@@ -4865,7 +4865,7 @@ fn pr9_picker_seeds_choices_idx_from_pager_snapshot_opt_out_true() {
+@@ -4899,7 +4899,7 @@ fn pr9_picker_seeds_choices_idx_from_pager_snapshot_opt_out_true() {
      }
  }
  
@@ -225,7 +225,7 @@ index aed8b1b7f6bfae91a1e7598883a47357a5d38f8c..1b735854e27b69e2b582dd2d1c9f8584
  #[test]
  fn pr9_coding_data_sharing_choices_use_canonical_strings() {
      let reg = SettingsRegistry::defaults();
-@@ -4875,19 +4875,9 @@ fn pr9_coding_data_sharing_choices_use_canonical_strings() {
+@@ -4909,19 +4909,9 @@ fn pr9_coding_data_sharing_choices_use_canonical_strings() {
          _ => panic!("coding_data_sharing must be Enum"),
      };
      assert_eq!(
@@ -248,7 +248,7 @@ index aed8b1b7f6bfae91a1e7598883a47357a5d38f8c..1b735854e27b69e2b582dd2d1c9f8584
      );
  }
  
-@@ -6402,14 +6392,13 @@ fn pr13_cli_batch_defaults_roundtrip_via_current_value_for() {
+@@ -6436,14 +6426,13 @@ fn pr13_cli_batch_defaults_roundtrip_via_current_value_for() {
      use xai_grok_pager::settings::current_value_for;
      let ui = UiConfig::default();
      let pager = PagerLocalSnapshot::default();
@@ -266,10 +266,10 @@ index aed8b1b7f6bfae91a1e7598883a47357a5d38f8c..1b735854e27b69e2b582dd2d1c9f8584
      }
  }
 diff --git a/crates/codegen/xai-grok-shell/src/auth/manager.rs b/crates/codegen/xai-grok-shell/src/auth/manager.rs
-index 8c65d68c81e63146272588182aa09ef68f8f3a20..843876e970d48d86d0071f6ecbb3b076e3315854 100644
+index 06b3b1bd429397a409b45d4569b0a8dcd16c2348..50d1b3c9d329fa895bb49af1aa094eb319e90b3c 100644
 --- a/crates/codegen/xai-grok-shell/src/auth/manager.rs
 +++ b/crates/codegen/xai-grok-shell/src/auth/manager.rs
-@@ -774,10 +774,16 @@ impl AuthManager {
+@@ -790,10 +790,16 @@ impl AuthManager {
      /// [`Self::current_or_expired`] because neither flag changes on token
      /// expiry and `current()` returns `None` during the refresh window.
      ///
@@ -289,7 +289,7 @@ index 8c65d68c81e63146272588182aa09ef68f8f3a20..843876e970d48d86d0071f6ecbb3b076
          self.current_or_expired()
              .is_some_and(|a| a.is_data_collection_disabled())
      }
-@@ -787,7 +793,12 @@ impl AuthManager {
+@@ -803,7 +809,12 @@ impl AuthManager {
      /// cleared auth (e.g. after a mid-session `/logout`) counts as
      /// disabled — nothing may leave the machine while the privacy state is
      /// unknown.
@@ -303,7 +303,7 @@ index 8c65d68c81e63146272588182aa09ef68f8f3a20..843876e970d48d86d0071f6ecbb3b076
              .is_some_and(|a| !a.is_data_collection_disabled())
      }
 diff --git a/crates/codegen/xai-grok-shell/src/auth/manager_tests.rs b/crates/codegen/xai-grok-shell/src/auth/manager_tests.rs
-index e1ec6f8653b66154e6dc690e97203c0b5efe9dc9..d45d5b7dbd322d6546e7fbf8494c4eae84a4364b 100644
+index 75a6f09aa8cfa931a550ed139f845cca08817f42..187c88f58e56009eb588349b47f426ccd6d72ab1 100644
 --- a/crates/codegen/xai-grok-shell/src/auth/manager_tests.rs
 +++ b/crates/codegen/xai-grok-shell/src/auth/manager_tests.rs
 @@ -443,68 +443,54 @@ fn clear_does_not_remove_legacy_scope() {
@@ -414,7 +414,7 @@ index e1ec6f8653b66154e6dc690e97203c0b5efe9dc9..d45d5b7dbd322d6546e7fbf8494c4eae
 +    assert!(mgr.is_data_collection_disabled());
  }
  
- // -- token_suffix ----------------------------------------------------------------
+ // -- bearer_suffix ----------------------------------------------------------------
 @@ -3318,9 +3299,10 @@ async fn enrich_auth_inline_keeps_fields_absent_from_response() {
      assert_eq!(auth.principal_type.as_deref(), Some("Team"));
      assert_eq!(auth.principal_id.as_deref(), Some("team-1"));
@@ -429,10 +429,10 @@ index e1ec6f8653b66154e6dc690e97203c0b5efe9dc9..d45d5b7dbd322d6546e7fbf8494c4eae
  }
  
 diff --git a/crates/codegen/xai-grok-shell/src/auth/model.rs b/crates/codegen/xai-grok-shell/src/auth/model.rs
-index 0bb5179ad28a7e93f20e102b156fb49891e24b02..7530a7145ff55c3a605f9f4cd6d632e480530fb6 100644
+index d1c69387df2728f51a5af53f58dce21ee339c34a..1a8295c050386be26f943e591f462b00b36d5a29 100644
 --- a/crates/codegen/xai-grok-shell/src/auth/model.rs
 +++ b/crates/codegen/xai-grok-shell/src/auth/model.rs
-@@ -184,7 +184,13 @@ impl GrokAuth {
+@@ -185,7 +185,13 @@ impl GrokAuth {
      /// retention. Use this for trace-upload and research-data gates.
      /// Product analytics (`telemetry_enabled`) and user-facing sync
      /// features should use `is_zdr_team()` directly.
@@ -446,7 +446,7 @@ index 0bb5179ad28a7e93f20e102b156fb49891e24b02..7530a7145ff55c3a605f9f4cd6d632e4
          self.is_zdr_team() || self.coding_data_retention_opt_out
      }
  
-@@ -227,7 +233,9 @@ impl Default for GrokAuth {
+@@ -228,7 +234,9 @@ impl Default for GrokAuth {
              organization_role: None,
              user_blocked_reason: None,
              team_blocked_reasons: vec![],
@@ -504,8 +504,8 @@ index 9161dc76ce6d63b395a12dedac080ce065fc6815..e90e7216e9613b8665e6f298765e8323
      }))
  }
 
-base-commit: 780d1388fff103ff0db0d8c14de65af6225b4860
-prerequisite-patch-id: b36db0c7d3014d518e86e1c95d78b6c8d2485fb1
+base-commit: afbc0fb710320c7add294c2106d447ecc3e3af2e
+prerequisite-patch-id: 93d0809d4523052785da7299f88492f13cdcd6a9
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
 -- 
