@@ -25,13 +25,14 @@
 #   grok rebuild --build-only
 #   grok rebuild --port       → laisse le conflit dans l'arbre pour le porter
 #   grok rebuild --continue   → reprend la série après résolution
+#   grok rebuild --release    → publie une release GH (Linux + Windows croisé)
 #   grok rebuild --menu       → menu même avec des arguments
 #   grok rebuild --no-menu    → jamais de menu
 #   FORCE_APPLY=1 grok rebuild
 #
 set -euo pipefail
 
-VERSION_SCRIPT="2.5.0"
+VERSION_SCRIPT="2.6.0"
 
 export PATH="${HOME}/.cargo/bin:${PATH}"
 
@@ -100,6 +101,7 @@ grok-privacy simple v${VERSION_SCRIPT}
   grok rebuild --no-contracts  sauter les contrats privacy (déconseillé)
   grok rebuild --port       apply qui laisse le conflit dans l'arbre (portage)
   grok rebuild --continue   reprend la série après résolution du conflit
+  grok rebuild --release    publie une release GH (Linux + Windows croisé)
   grok rebuild --menu       menu même avec des arguments
   grok rebuild --no-menu    jamais de menu
   grok rebuild --help
@@ -146,6 +148,7 @@ while [[ $# -gt 0 ]]; do
     --check|-c) MODE=check; shift ;;
     --menu|-i) MENU_CHOICE=1; shift ;;
     --no-menu) MENU_CHOICE=0; shift ;;
+    --release) MODE=release; shift ;;
     --port) PORT_MODE=1; shift ;;
     --continue|--resume) MODE=continue; shift ;;
     --no-install|--apply-only) DO_INSTALL=0; shift ;;
@@ -361,10 +364,11 @@ report_conflict() {
 # gestionnaire d'erreur (restore_branch) l'écrasait aussi. On refuse de démarrer
 # plutôt que de détruire.
 require_clean_worktree() {
+  local why="${1:-l'apply détacherait HEAD et écraserait ces fichiers}"
   local dirty
   dirty="$(git status --porcelain --untracked-files=no 2>/dev/null || true)"
   [[ -z "$dirty" ]] || {
-    err "Worktree sale : l'apply détacherait HEAD et écraserait ces fichiers :"
+    err "Worktree sale : ${why} :"
     printf '%s\n' "$dirty" | head -20 >&2
     die "Commiter ou remiser d'abord (git stash) — rien n'a été touché."
   }
@@ -939,6 +943,97 @@ menu_push_branch() {
   return 0
 }
 
+WIN_TARGET="x86_64-pc-windows-gnu"
+ASSET_LINUX="grok-linux-x86_64"
+ASSET_WINDOWS="grok-windows-x86_64.exe"
+
+# Publier une release, c'est ce qui permet à `grok update` de fonctionner sur
+# les autres machines — Windows en particulier, où compiler n'est pas une
+# option raisonnable. L'asset Windows est produit ici par compilation croisée
+# (mingw), ce qui n'attend pas la CI.
+#
+# Trois refus avant toute publication : arbre sale (artefact non reproductible),
+# commit non joignable depuis origin/main (release qui pointe dans le vide),
+# contrats non prouvés sur cet arbre (on ne distribue pas ce qu'on n'a pas
+# vérifié — publier engage plus qu'installer).
+do_publish_release() {
+  local version tag head sha tree mark bin_linux
+  version="$(tree_pkg_version)"
+  [[ -n "$version" ]] || die "version produit indéterminable depuis $PKG_MANIFEST"
+  tag="v${version}"
+
+  step "Publication de release — $tag"
+  require_clean_worktree "un artefact publié doit être reproductible depuis un commit"
+
+  head="$(git rev-parse HEAD)"
+  git fetch --quiet "$ORIGIN_REMOTE" main 2>/dev/null || warn "fetch $ORIGIN_REMOTE échoué"
+  if ! git merge-base --is-ancestor "$head" "refs/remotes/${ORIGIN_REMOTE}/main" 2>/dev/null; then
+    err "HEAD (${head:0:12}) n'est pas joignable depuis ${ORIGIN_REMOTE}/main."
+    die "Publier main d'abord — une release doit pointer sur un commit public."
+  fi
+
+  tree="$(git rev-parse 'HEAD^{tree}')"
+  mark="$(contracts_mark_file)"
+  if [[ "$(cat "$mark" 2>/dev/null)" != "$tree" ]]; then
+    err "Les contrats privacy n'ont pas été prouvés sur cet arbre (${tree:0:12})."
+    die "Lancer d'abord : grok rebuild --build-only"
+  fi
+
+  command -v gh >/dev/null 2>&1 || die "gh requis pour publier une release"
+  command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 \
+    || die "chaîne mingw absente — installer gcc-mingw-w64-x86-64 pour produire l'asset Windows"
+
+  bin_linux="target/release/$(cargo_bin_name)"
+  [[ -x "$bin_linux" ]] || die "binaire Linux absent : $bin_linux — lancer grok rebuild --build-only"
+
+  info "Build croisé $WIN_TARGET (quelques minutes)…"
+  "${CARGO}" --version >/dev/null 2>&1 || die "cargo introuvable"
+  rustup target add "$WIN_TARGET" >/dev/null 2>&1 || true
+  $CARGO build -p xai-grok-pager-bin --release --target "$WIN_TARGET" \
+    || die "build croisé Windows échoué"
+  local bin_win="target/${WIN_TARGET}/release/$(cargo_bin_name).exe"
+  [[ -f "$bin_win" ]] || die "cargo n'a pas produit $bin_win"
+
+  local stage; stage="$(mktemp -d "${TMPDIR:-/tmp}/grok-release-XXXXXX")"
+  install -m 755 "$bin_linux" "${stage}/${ASSET_LINUX}"
+  install -m 755 "$bin_win" "${stage}/${ASSET_WINDOWS}"
+
+  local exists=0
+  gh release view "$tag" -R "$GH_REPO" >/dev/null 2>&1 && exists=1
+
+  printf '\n%s── Publication de release ──%s\n' "$B" "$Z"
+  printf '  dépôt      %s\n' "$GH_REPO"
+  printf '  tag        %s   %s\n' "$tag" \
+    "$([[ "$exists" == "1" ]] && printf 'existe déjà → assets remplacés' || printf 'sera créé sur %s' "${head:0:12}")"
+  printf '  linux      %-26s %s\n' "$ASSET_LINUX" "$(du -h "${stage}/${ASSET_LINUX}" | cut -f1)"
+  printf '  windows    %-26s %s  (croisé %s)\n' "$ASSET_WINDOWS" \
+    "$(du -h "${stage}/${ASSET_WINDOWS}" | cut -f1)" "$WIN_TARGET"
+  warn "Les contrats privacy ont tourné sur l'hôte Linux ; l'asset Windows sort du même arbre mais n'a pas été exécuté."
+
+  if ! menu_confirm_word "PUBLIER"; then
+    info "annulé — rien n'a été publié"
+    rm -rf "$stage"
+    return 0
+  fi
+
+  local rc=0
+  if [[ "$exists" == "1" ]]; then
+    gh release upload "$tag" -R "$GH_REPO" --clobber \
+      "${stage}/${ASSET_LINUX}" "${stage}/${ASSET_WINDOWS}" || rc=$?
+  else
+    gh release create "$tag" -R "$GH_REPO" --target "$head" --generate-notes \
+      --title "$tag" \
+      "${stage}/${ASSET_LINUX}" "${stage}/${ASSET_WINDOWS}" || rc=$?
+  fi
+  rm -rf "$stage"
+  if [[ "$rc" -ne 0 ]]; then
+    err "publication refusée (code $rc) — rien n'a changé sur $GH_REPO"
+    return 0
+  fi
+  ok "release $tag publiée — grok update la verra sur les autres machines"
+  return 0
+}
+
 # La seule action irréversible du script. Sauvegarde d'abord, pousse ensuite,
 # et ne déplace main en local qu'une fois le distant accepté : un push refusé
 # ne doit pas laisser un main déplacé derrière lui.
@@ -1021,6 +1116,7 @@ menu_downstream() {
     items=(
       "Pousser la branche courante sur $ORIGIN_REMOTE"
       "Remplacer main par la branche courante, puis force push"
+      "Publier une release (Linux + Windows)"
       "Rafraîchir"
       "Retour"
     )
@@ -1030,8 +1126,9 @@ menu_downstream() {
     case "$idx" in
       0) menu_push_branch ;;
       1) menu_replace_main ;;
-      2) fetch_official_quiet || warn "fetch échoué" ;;
-      3) return 0 ;;
+      2) do_publish_release ;;
+      3) fetch_official_quiet || warn "fetch échoué" ;;
+      4) return 0 ;;
     esac
   done
 }
@@ -1142,6 +1239,7 @@ printf '%s╰%s\n' "$D" "$Z"
 
 case "$MODE" in
   check) do_check ;;
+  release) do_publish_release ;;
   build-only)
     do_verify_contracts
     do_build_install

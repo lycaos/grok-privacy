@@ -21,11 +21,22 @@ export LANG="${LANG:-fr_FR.UTF-8}"
 export LC_ALL="${LC_ALL:-$LANG}"
 
 REPO="${GROK_PRIVACY_REPO:-$HOME/grok-privacy}"
-BIN_INSTALL="${GROK_PRIVACY_BIN:-$HOME/.grok/bin/grok}"
-BIN_PRIVACY_COPY="${GROK_PRIVACY_BIN_COPY:-$HOME/.local/bin/grokp}"
+
+# Sous Windows (Git Bash / MSYS), un fichier sans `.exe` n'est pas exécutable :
+# le suffixe fait partie du nom d'installation, pas d'un détail cosmétique.
+# Sans ça, `grok update` installait un `~/.grok/bin/grok` que rien ne pouvait
+# lancer — la seule plateforme où ce script sert vraiment.
+case "$(uname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')" in
+  mingw*|msys*|cygwin*|windows*) EXE_SUFFIX=".exe"; IS_WINDOWS=1 ;;
+  *) EXE_SUFFIX=""; IS_WINDOWS=0 ;;
+esac
+
+BIN_INSTALL="${GROK_PRIVACY_BIN:-$HOME/.grok/bin/grok${EXE_SUFFIX}}"
+BIN_PRIVACY_COPY="${GROK_PRIVACY_BIN_COPY:-$HOME/.local/bin/grokp${EXE_SUFFIX}}"
 GH_REPO="${GROK_PRIVACY_GH_REPO:-lycaos/grok-privacy}"
 PREFERRED_BRANCH="${GROK_PRIVACY_PREFERRED_BRANCH:-main}"
 CARGO_BIN="${CARGO:-cargo}"
+PYTHON_BIN="${PYTHON:-python3}"
 
 if [[ -t 1 ]]; then
   C_BOLD=$'\033[1m'
@@ -168,8 +179,49 @@ fetch_latest_release_json() {
   return 1
 }
 
-# Parse tag + asset URL matching candidates (python for portability)
+# Le parsing passait par Python « pour la portabilité ». Git Bash ne fournit
+# pas Python : c'était précisément la plateforme où ce script sert. On garde
+# Python quand il est là (appariement plus fin), avec un repli sans dépendance.
 pick_release_asset() {
+  local json="$1" out=""
+  if command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+    out="$(pick_release_asset_python "$json" || true)"
+  fi
+  if [[ -z "${out//[[:space:]]/}" ]]; then
+    out="$(pick_release_asset_shell "$json" || true)"
+  fi
+  printf '%s' "$out"
+}
+
+# Repli sans Python : le nom d'un asset est le dernier segment de son URL de
+# téléchargement, donc une seule extraction suffit — inutile d'apparier deux
+# champs JSON à coups d'expressions régulières.
+pick_release_asset_shell() {
+  local json="$1" tag urls u base c token
+  tag="$(printf '%s' "$json" | grep -oE '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 \
+         | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/')"
+  urls="$(printf '%s' "$json" | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]*"' \
+          | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/')"
+  for c in "${ASSET_CANDIDATES[@]}"; do
+    while IFS= read -r u; do
+      [[ -n "$u" ]] || continue
+      base="${u##*/}"
+      if [[ "$base" == "$c" ]]; then printf '%s\t%s\t%s\n' "$tag" "$base" "$u"; return 0; fi
+    done <<< "$urls"
+  done
+  token="${PLATFORM%%-*}"
+  while IFS= read -r u; do
+    [[ -n "$u" ]] || continue
+    base="${u##*/}"
+    case "$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')" in
+      *"$token"*) printf '%s\t%s\t%s\n' "$tag" "$base" "$u"; return 0 ;;
+    esac
+  done <<< "$urls"
+  printf '%s\t\t\n' "$tag"
+  return 0
+}
+
+pick_release_asset_python() {
   local json="$1"
   "$PYTHON_BIN" - "$json" <<'PY' || true
 import json, sys
@@ -219,7 +271,16 @@ install_binary_file() {
   fi
   local tmp="${BIN_INSTALL}.new.$$"
   install -m 755 "$src" "$tmp"
+  # Windows verrouille un exécutable en cours d'exécution : on ne peut pas
+  # l'écraser, mais on peut le renommer. On décale l'ancien puis on met le neuf
+  # en place ; le nettoyage du décalé échouera tant qu'il tourne, sans importance.
+  if [[ "$IS_WINDOWS" == "1" && -e "$BIN_INSTALL" ]]; then
+    mv -f "$BIN_INSTALL" "${BIN_INSTALL}.old" 2>/dev/null || true
+  fi
   mv -f "$tmp" "$BIN_INSTALL"
+  if [[ "$IS_WINDOWS" == "1" ]]; then
+    rm -f "${BIN_INSTALL}.old" 2>/dev/null || true
+  fi
   mkdir -p "$(dirname "$BIN_PRIVACY_COPY")"
   install -m 755 "$src" "$BIN_PRIVACY_COPY"
   ok "Installé : $BIN_INSTALL"
