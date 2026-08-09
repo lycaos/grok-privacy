@@ -1,5 +1,11 @@
 # Changelog
 
+# Unreleased
+
+## Features
+
+- **`/prompts`** opens a TUI browser for system and subagent prompt templates: preview the stock defaults shipped in the binary, edit overrides in-app (or with `$EDITOR`), reset to defaults, and save/apply named presets under `~/.grok` so personal prompts never live in the project git tree. See [Prompt templates (`/prompts`)](../xai-grok-pager/docs/user-guide/25-prompts.md).
+
 # 1.0.0 — 2026-08-07
 
 ## Features
