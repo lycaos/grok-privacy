@@ -50,7 +50,7 @@ index 0000000000000000000000000000000000000000..ed8a55339a1ea9e5beadea87196e6e7d
 +    "RUSTSEC-2026-0195",
 +]
 diff --git a/Cargo.lock b/Cargo.lock
-index 2cc5d23beaa082e2d6eee65246f013a6de87e7d5..1463d31b658a6b973e858ca087dea08d7e9bd3c5 100644
+index 2d4942594aa13865e8177ba7829b01cec23d1877..22977671a43ccfc85a8ba646bd9221afa92586c4 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
 @@ -2251,9 +2251,9 @@ dependencies = [
@@ -66,7 +66,7 @@ index 2cc5d23beaa082e2d6eee65246f013a6de87e7d5..1463d31b658a6b973e858ca087dea08d
   "crossbeam-utils",
  ]
 
-base-commit: afbc0fb710320c7add294c2106d447ecc3e3af2e
+base-commit: 8a14c91d88875a831a38b3a066b1683116bcb31c
 prerequisite-patch-id: 93d0809d4523052785da7299f88492f13cdcd6a9
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
