@@ -1993,6 +1993,8 @@ pub(super) fn pr13_effective_default(key: &str) -> Option<bool> {
     match key {
         "show_tips" => Some(true),
         "auto_update" => Some(true),
+        // Grok Privacy: sessions stay local unless the user says otherwise.
+        "session_writeback" => Some(false),
         "toolset.ask_user_question.timeout_enabled" => {
             Some(ask_user_question::DEFAULT_ASK_USER_QUESTION_TIMEOUT_ENABLED)
         }
@@ -2050,6 +2052,37 @@ pub(in crate::app::dispatch) fn set_auto_update(app: &mut AppView, new: bool) ->
     ));
     vec![Effect::PersistSetting {
         key: "auto_update",
+        value: crate::settings::SettingValue::Bool(new),
+        rollback_value: crate::settings::SettingValue::Bool(prev_effective),
+    }]
+}
+
+/// State-only mutation for `session_writeback`.
+pub(super) fn set_session_writeback_inner(app: &mut AppView, value: bool) {
+    app.session_writeback = Some(value);
+}
+
+/// Outer dispatcher for `Action::SetSessionWriteback`.
+///
+/// Grok Privacy's only switch for server-side session storage. Turning it on
+/// is the one thing that lets `StorageMode::resolve` return `Writeback`, so
+/// the toast spells out what the choice means rather than echoing "on/off".
+pub(in crate::app::dispatch) fn set_session_writeback(app: &mut AppView, new: bool) -> Vec<Effect> {
+    let prev_state = app.session_writeback;
+    let prev_effective = prev_state.unwrap_or(false);
+    if prev_effective == new && prev_state.is_some() {
+        return vec![];
+    }
+    set_session_writeback_inner(app, new);
+    refresh_open_settings_modals(app);
+    tracing::info!(target: "settings", key = "session_writeback", value = new, "setting changed");
+    app.show_toast(if new {
+        "Session sync on — new sessions will be stored on xAI servers (restart to apply)"
+    } else {
+        "Session sync off — sessions stay on this machine (restart to apply)"
+    });
+    vec![Effect::PersistSetting {
+        key: "session_writeback",
         value: crate::settings::SettingValue::Bool(new),
         rollback_value: crate::settings::SettingValue::Bool(prev_effective),
     }]

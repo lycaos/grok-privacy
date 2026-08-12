@@ -1105,6 +1105,9 @@ pub struct AppView {
     pub show_tips: Option<bool>,
     /// Persisted `[cli].auto_update` mirror. `None` means no override (default `true`).
     pub auto_update: Option<bool>,
+    /// Persisted `[cli].session_writeback` mirror. `None` = no override
+    /// (default `false` — sessions never leave this machine).
+    pub session_writeback: Option<bool>,
     /// Persisted `[toolset.ask_user_question].timeout_enabled` mirror, seeded from the effective TOML merge like `show_tips`.
     /// `None` means unset in TOML (default `true`); toggles write the user layer.
     pub ask_user_question_timeout_enabled: Option<bool>,
@@ -1600,6 +1603,7 @@ impl AppView {
             coding_data_write_seq: 0,
             show_tips: None,
             auto_update: None,
+            session_writeback: None,
             ask_user_question_timeout_enabled: None,
             zdr_access_enabled: false,
             usage_billing_redirect_url: None,

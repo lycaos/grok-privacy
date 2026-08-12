@@ -1005,6 +1005,12 @@ pub struct CliConfig {
     /// Group sessions by repo in the picker and CLI listings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_picker_grouped: Option<bool>,
+    /// Grok Privacy: opt in to session writeback (pushing session content to
+    /// the vendor session backend). `None`/`false` — the default — keeps every
+    /// session on this machine. See [`crate::config::StorageMode::resolve`];
+    /// the user toggles it from `/config`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_writeback: Option<bool>,
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]

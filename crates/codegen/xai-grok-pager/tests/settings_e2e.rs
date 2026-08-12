@@ -56,6 +56,7 @@ const ALL_SETTINGS_EXERCISED: &[&str] = &[
     "plan_mode",
     "show_tips",
     "auto_update",
+    "session_writeback",
     "fork_secondary_model",
     "show_thinking_blocks",
     "prompt_suggestions",
@@ -261,6 +262,9 @@ fn assert_set_bool_action(outcome: SettingsKeyOutcome, key: &str, expected: bool
         }
         ("auto_update", Action::SetAutoUpdate(b)) => {
             assert_eq!(b, expected, "SetAutoUpdate value differs from expected")
+        }
+        ("session_writeback", Action::SetSessionWriteback(b)) => {
+            assert_eq!(b, expected, "SetSessionWriteback value differs from expected")
         }
         ("respect_manual_folds", Action::SetRespectManualFolds(b)) => {
             assert_eq!(
@@ -1871,6 +1875,7 @@ fn registry_kind_membership_through_pr_14() {
             "toolset.ask_user_question.timeout_enabled",
             "auto_update",
             "show_tips",
+            "session_writeback",
             "voice_keybind_enabled",
             // Per-tip contextual-hint children (hidden from the top-level list, toggled inside the group sub-sheet) are still Bool settings
             "contextual_hints.undo",
@@ -2048,6 +2053,7 @@ fn defaults_round_trip_through_registry() {
             "plan_mode" => SettingValue::Enum("off"),
             "show_tips" => SettingValue::Bool(true),
             "auto_update" => SettingValue::Bool(false),
+            "session_writeback" => SettingValue::Bool(false),
             "fork_secondary_model" => SettingValue::String(String::new()),
             "show_thinking_blocks" => SettingValue::Bool(true),
             "prompt_suggestions" => SettingValue::Bool(true),
@@ -2129,6 +2135,7 @@ fn settings_value_payload_matches_kind() {
             | SettingsKeyOutcome::Action(Action::SetAskUserQuestionTimeoutEnabled(_))
             | SettingsKeyOutcome::Action(Action::SetShowTips(_))
             | SettingsKeyOutcome::Action(Action::SetAutoUpdate(_))
+            | SettingsKeyOutcome::Action(Action::SetSessionWriteback(_))
             | SettingsKeyOutcome::Action(Action::SetRespectManualFolds(_))
             | SettingsKeyOutcome::Action(Action::SetShowThinkingBlocks(_))
             | SettingsKeyOutcome::Action(Action::SetPromptSuggestions(_))
@@ -7665,4 +7672,44 @@ fn collapsed_edit_blocks_renders_under_appearance_category_shell_owned() {
         "collapsed_edit_blocks must be immediately below group_tool_verbs; \
          Appearance order: {keys:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// session_writeback (Privacy Bool, restart_required) — Grok Privacy
+// ---------------------------------------------------------------------------
+
+/// The switch must sit under Privacy: it is the only thing standing between a
+/// session and xAI's session backend, so it has to be where a user goes
+/// looking for privacy controls.
+#[test]
+fn privacy_session_writeback_renders_under_privacy_category() {
+    let reg = SettingsRegistry::defaults();
+    let meta = reg
+        .find("session_writeback")
+        .expect("session_writeback must be registered");
+    assert_eq!(
+        meta.category,
+        SettingCategory::Privacy,
+        "session_writeback must live under Privacy"
+    );
+    assert!(
+        matches!(meta.kind, SettingKind::Bool { default: false }),
+        "session_writeback must be a Bool defaulting to off: {:?}",
+        meta.kind
+    );
+    assert!(
+        meta.restart_required,
+        "storage mode is resolved once per session, so the row must say so"
+    );
+}
+
+/// Space-toggle dispatches the typed setter that persists
+/// `[cli].session_writeback` — the single input `StorageMode::resolve_privacy`
+/// reads.
+#[test]
+fn privacy_space_on_session_writeback_dispatches_typed_setter() {
+    let mut s = make_state();
+    navigate_to(&mut s, "session_writeback");
+    let outcome = handle_settings_key(&mut s, &press(KeyCode::Char(' ')));
+    assert_set_bool_action(outcome, "session_writeback", true);
 }

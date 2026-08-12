@@ -1189,6 +1189,36 @@ pub fn default_settings() -> Vec<SettingMeta> {
             restart_required: false,
             hidden_in_minimal: false,
         },
+        // SHELL-owned, persisted to `[cli].session_writeback`. The single
+        // switch for server-side session storage in Grok Privacy: nothing
+        // else — not `--storage-mode`, not `GROK_STORAGE_MODE`, not the
+        // backend-served `writeback_enabled` — can turn it on.
+        SettingMeta {
+            key: "session_writeback",
+            category: SettingCategory::Privacy,
+            owner: SettingOwner::Shell,
+            label: "Session sync to xAI servers",
+            description: "Off by default. When on, each session — your messages, the model's \
+                          replies, tool calls and the working directory path — is uploaded to \
+                          xAI's session backend as it happens, and can be resumed from another \
+                          machine. When off, sessions stay in ~/.grok/sessions on this machine. \
+                          Inference still reaches xAI either way; this only controls whether \
+                          the transcript is stored there.",
+            keywords: &[
+                "privacy",
+                "session",
+                "sync",
+                "writeback",
+                "upload",
+                "storage",
+                "backend",
+                "resume",
+                "cloud",
+            ],
+            kind: SettingKind::Bool { default: false },
+            restart_required: true,
+            hidden_in_minimal: false,
+        },
         // SHELL-owned, persisted to `[ui].default_selected_permission` in config.toml
         // Read by the pager via `appearance::permission_cursor`
         // Canonical `always_allow_all_sessions` (the effective default) lands the first prompt's cursor on the enable-always-approve row

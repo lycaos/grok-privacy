@@ -268,6 +268,10 @@ pub struct PagerLocalSnapshot {
     pub show_tips: Option<bool>,
     /// `[cli].auto_update` mirror; `None` means no TOML override, so the default `false` applies in Grok Privacy (no silent x.ai channel updates).
     pub auto_update: Option<bool>,
+    /// `[cli].session_writeback` mirror. `None` = no TOML override → default
+    /// `false` in Grok Privacy (sessions are never stored server-side unless
+    /// the user turns this on).
+    pub session_writeback: Option<bool>,
     /// Process-wide vim-mode scrollback flag.
     /// Mirrors `appearance::cache::load_vim_mode()` at snapshot time.
     pub vim_mode: bool,
@@ -305,6 +309,7 @@ impl Default for PagerLocalSnapshot {
             plan_mode_active: false,
             show_tips: None,
             auto_update: None,
+            session_writeback: None,
             vim_mode: false,
             // Matches the registry default and `appearance::cache::SCROLL_SPEED_DEFAULT`
             // Bare `u8::default()` would be `0` (out of range) so we override
@@ -680,6 +685,7 @@ pub fn current_value_for(
         // CLI batch: snapshot mirrors; `None` means the effective default `true`
         "show_tips" => Some(SettingValue::Bool(pager.show_tips.unwrap_or(true))),
         "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(false))),
+        "session_writeback" => Some(SettingValue::Bool(pager.session_writeback.unwrap_or(false))),
         // fork_secondary_model: the baseline value folds to the empty string
         // The mirror persists the ModelId slug but the DynamicEnum canonicals are catalog display names, so resolve via the snapshot
         // A stale id passes through raw
@@ -951,6 +957,13 @@ mod tests {
                         !*default,
                         "auto_update registry default must be false in Grok Privacy \
                          (no silent x.ai channel updates)"
+                    );
+                }
+                ("session_writeback", SettingKind::Bool { default }) => {
+                    assert!(
+                        !*default,
+                        "session_writeback registry default must be false in Grok Privacy \
+                         (sessions are never stored server-side unless asked for)"
                     );
                 }
                 // vim_mode: Option<bool>; None reads as false

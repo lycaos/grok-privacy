@@ -1756,6 +1756,7 @@ pub(crate) async fn run(
     let config_session_bools = load_initial_config_session_bools();
     app.show_tips = config_session_bools.show_tips;
     app.auto_update = config_session_bools.auto_update;
+    app.session_writeback = config_session_bools.session_writeback;
     app.ask_user_question_timeout_enabled = config_session_bools.ask_user_question_timeout_enabled;
     // Prime thread-local caches so first render doesn't hit disk.
     crate::appearance::cache::prime(&app.current_ui);
@@ -3328,6 +3329,7 @@ pub(crate) fn load_initial_ui_config() -> xai_grok_shell::agent::config::UiConfi
 struct InitialConfigSessionBools {
     show_tips: Option<bool>,
     auto_update: Option<bool>,
+    session_writeback: Option<bool>,
     ask_user_question_timeout_enabled: Option<bool>,
 }
 
@@ -3339,6 +3341,7 @@ fn load_initial_config_session_bools() -> InitialConfigSessionBools {
     InitialConfigSessionBools {
         show_tips: cli_bool("show_tips"),
         auto_update: cli_bool("auto_update"),
+        session_writeback: cli_bool("session_writeback"),
         ask_user_question_timeout_enabled: root
             .get("toolset")
             .and_then(|t| t.get("ask_user_question"))
