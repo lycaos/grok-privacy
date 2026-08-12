@@ -1,8 +1,8 @@
 {
-  "branch": "sync/upstream-1.0.1-be71313",
-  "upstream": "be713136d2a69080743a3f6b3c72077057e5948f",
-  "version": "1.0.1",
-  "source_rev": "5d08d7e4123092567ccd584cd9f99afa2972065c",
+  "branch": "sync/upstream-1.0.3-e5fd481",
+  "upstream": "e5fd4816d432",
+  "version": "1.0.3",
+  "source_rev": "ea094a8c369475f97c85540d01730baec0dce5d6",
   "applied": [
     "0001-privacy-core.patch",
     "0010-telemetry-hard-off.patch",
@@ -10,6 +10,8 @@
     "0030-retention-opt-out.patch",
     "0040-vendor-updater-hard-off.patch",
     "0050-privacy-contract-tests.patch",
+    "0055-session-writeback-hard-off.patch",
+    "0057-pager-test-drift.patch",
     "0060-egress-guard.patch",
     "0070-supply-chain-policy.patch",
     "0075-win-build-portability.patch",
