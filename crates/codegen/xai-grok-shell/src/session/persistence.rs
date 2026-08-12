@@ -2206,6 +2206,13 @@ fn init_remote_sync(
     match storage_mode {
         StorageMode::Local => Ok(None),
         StorageMode::Writeback => {
+            // Last-line chokepoint: no `RemoteSync` is ever built for a privacy
+            // build the user has not opted in, even if a caller reached
+            // `Writeback` without going through `StorageMode::resolve`.
+            if xai_grok_version::PRIVACY_BUILD && !crate::config::session_writeback_opt_in() {
+                tracing::info!("privacy: session writeback not opted in; staying local");
+                return Ok(None);
+            }
             let auth_manager = auth_manager.ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::PermissionDenied,
