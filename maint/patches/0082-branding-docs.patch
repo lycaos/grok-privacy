@@ -634,10 +634,10 @@ index 4dde3ef372cc8aabe2e123e12b1b88e0c958d355..65e256e2e68cdb7e2fc93d322beea8b6
      next_display_order = None,
      help_template = "\
 diff --git a/crates/codegen/xai-grok-pager/src/app/mod.rs b/crates/codegen/xai-grok-pager/src/app/mod.rs
-index f0a291ded1536f1df5f68cad583ac2ddc28baf31..c39e9bc321699c08b0bbfff303c6efe9703f4d10 100644
+index 3c80d17cecec2464cb3d8f8804b72cda8da4335f..494c46de0b79d718c74d2b1fa25ab2d70081c9f5 100644
 --- a/crates/codegen/xai-grok-pager/src/app/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/mod.rs
-@@ -2275,7 +2275,7 @@ mod tests {
+@@ -2284,7 +2284,7 @@ mod tests {
          assert_eq!(
              first_5,
              vec![
@@ -17317,19 +17317,19 @@ literal 0
 HcmV?d00001
 
 
-base-commit: be713136d2a69080743a3f6b3c72077057e5948f
-prerequisite-patch-id: 9a4cd1267a90b73a57b46ad775f28e5425e31e74
+base-commit: e5fd4816d43260c15ba785f103990c1ed6cea230
+prerequisite-patch-id: fe1545b5dd57fa5184617b6a26bafe169b649d48
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
-prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
+prerequisite-patch-id: 1b982d3dc937169ac681757b419207aadef2520d
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
-prerequisite-patch-id: fb122d682aaf11ed0733882cf0c2ef6c678a9cbb
+prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
-prerequisite-patch-id: 1339df418db4ac5ba8e31bbf26ff515393af6e4f
+prerequisite-patch-id: 8d382959b3d5104923b112a28c631f31b4d4a6a5
 prerequisite-patch-id: 61f6c73f2b96cd3f297b9ff6502d6ab63aff3d4f
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: b302baa9b1f767c9d35467989b8aa2eb2cbbf679
 prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
-prerequisite-patch-id: a949494264dae224a5b250471a31f4169280ac53
+prerequisite-patch-id: 2420a49dffcf51ca6802de7982cfa7f4d8ffd3e3
 prerequisite-patch-id: 02578ae21a3919f1ee15108ca1c667746617cb22
 -- 
 2.43.0

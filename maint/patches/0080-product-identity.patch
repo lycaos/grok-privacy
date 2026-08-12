@@ -13,11 +13,11 @@ Gork-Risk: medium
  3 files changed, 38 insertions(+), 19 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager-bin/Cargo.toml b/crates/codegen/xai-grok-pager-bin/Cargo.toml
-index be8ea025fc402eb3ae818daef6a5477822a54948..789d51615ca719b3cfecf87f724be6e14cd00853 100644
+index 59ac5e13e16cac6e21bd2de5c15392b84fb64e52..aa3aa134dc5cc023219ae5cae4082489025b3938 100644
 --- a/crates/codegen/xai-grok-pager-bin/Cargo.toml
 +++ b/crates/codegen/xai-grok-pager-bin/Cargo.toml
 @@ -3,14 +3,18 @@ name = "xai-grok-pager-bin"
- version = "1.0.1"
+ version = "1.0.3"
  edition.workspace = true
  license = "Apache-2.0"
 -authors = ["xAI"]
@@ -43,7 +43,7 @@ index be8ea025fc402eb3ae818daef6a5477822a54948..789d51615ca719b3cfecf87f724be6e1
  name = "xai-grok-pager"
  path = "src/main.rs"
 diff --git a/crates/codegen/xai-grok-pager-bin/src/main.rs b/crates/codegen/xai-grok-pager-bin/src/main.rs
-index f8e31f74dfe79edb4c50c335795121b5b0fe49c7..940330cbf0207d5875a87ac763613c2f12ae98c3 100644
+index 5ad2074d1c6c476c0b6e3684c9509b7c961e2e2d..541a53473231264c75e69993bf018dc8b18ce4ee 100644
 --- a/crates/codegen/xai-grok-pager-bin/src/main.rs
 +++ b/crates/codegen/xai-grok-pager-bin/src/main.rs
 @@ -3,7 +3,8 @@
@@ -144,14 +144,14 @@ index 176f49dcdd81ea2c20aa599dcbd9cbf2e7362093..871fad2acadf35ec5a040b1a98e76778
      }
  }
 
-base-commit: be713136d2a69080743a3f6b3c72077057e5948f
-prerequisite-patch-id: 9a4cd1267a90b73a57b46ad775f28e5425e31e74
+base-commit: e5fd4816d43260c15ba785f103990c1ed6cea230
+prerequisite-patch-id: fe1545b5dd57fa5184617b6a26bafe169b649d48
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
-prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
+prerequisite-patch-id: 1b982d3dc937169ac681757b419207aadef2520d
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
-prerequisite-patch-id: fb122d682aaf11ed0733882cf0c2ef6c678a9cbb
+prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
-prerequisite-patch-id: 1339df418db4ac5ba8e31bbf26ff515393af6e4f
+prerequisite-patch-id: 8d382959b3d5104923b112a28c631f31b4d4a6a5
 prerequisite-patch-id: 61f6c73f2b96cd3f297b9ff6502d6ab63aff3d4f
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: b302baa9b1f767c9d35467989b8aa2eb2cbbf679

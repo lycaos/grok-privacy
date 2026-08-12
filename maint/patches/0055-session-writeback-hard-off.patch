@@ -30,7 +30,8 @@ Gork-Invariant: session-writeback-opt-in-only
 Gork-Risk: critical
 ---
  .../codegen/xai-grok-pager/src/app/actions.rs |   4 +
- .../xai-grok-pager/src/app/app_view.rs        |   5 +
+ .../xai-grok-pager/src/app/app_view.rs        |   4 +
+ .../xai-grok-pager/src/app/app_view_tests.rs  |   1 +
  .../src/app/dispatch/dashboard.rs             |   2 +
  .../xai-grok-pager/src/app/dispatch/prompt.rs |   2 +
  .../xai-grok-pager/src/app/dispatch/router.rs |   4 +-
@@ -50,10 +51,10 @@ Gork-Risk: critical
  .../xai-grok-shell/src/session/persistence.rs |   7 ++
  .../src/util/config/settings_writes.rs        |   7 ++
  .../xai-grok-shell/tests/privacy_resolvers.rs | 107 ++++++++++++++++++
- 21 files changed, 360 insertions(+), 2 deletions(-)
+ 22 files changed, 360 insertions(+), 2 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager/src/app/actions.rs b/crates/codegen/xai-grok-pager/src/app/actions.rs
-index d3ae87c645bbcadb7e90706184c8212d8f25c58d..6741c5382eee5274f1524cd78e5b246f8c1ec1a5 100644
+index 6686cda4fbac1e7348b0f944565d13af68775545..cdf60af2a26fc509200cd597e3669904a726de6a 100644
 --- a/crates/codegen/xai-grok-pager/src/app/actions.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/actions.rs
 @@ -592,6 +592,10 @@ pub enum Action {
@@ -68,10 +69,10 @@ index d3ae87c645bbcadb7e90706184c8212d8f25c58d..6741c5382eee5274f1524cd78e5b246f
      /// cadence is pinned once at startup.
      SetDisplayRefreshAutoCadence(bool),
 diff --git a/crates/codegen/xai-grok-pager/src/app/app_view.rs b/crates/codegen/xai-grok-pager/src/app/app_view.rs
-index d340f35cb11d1da9c7f1c16b227b3e4cd0b3e8f4..6527ff3fe925ab457afac2511a292984403a1417 100644
+index 92ae45d022a435f1e24222ede1adbba8c9bbb6a6..145f014e62b180b36d0a4213c90290ea18d2b006 100644
 --- a/crates/codegen/xai-grok-pager/src/app/app_view.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/app_view.rs
-@@ -1111,6 +1111,9 @@ pub struct AppView {
+@@ -1110,6 +1110,9 @@ pub struct AppView {
      pub show_tips: Option<bool>,
      /// Persisted `[cli].auto_update` mirror. `None` = no override (default `true`).
      pub auto_update: Option<bool>,
@@ -81,7 +82,7 @@ index d340f35cb11d1da9c7f1c16b227b3e4cd0b3e8f4..6527ff3fe925ab457afac2511a292984
      /// Persisted `[toolset.ask_user_question].timeout_enabled` mirror, seeded
      /// from the effective TOML merge like `show_tips`. `None` = unset in TOML
      /// (default `true`); toggles write the user layer.
-@@ -1581,6 +1584,7 @@ impl AppView {
+@@ -1593,6 +1596,7 @@ impl AppView {
              coding_data_write_seq: 0,
              show_tips: None,
              auto_update: None,
@@ -89,16 +90,20 @@ index d340f35cb11d1da9c7f1c16b227b3e4cd0b3e8f4..6527ff3fe925ab457afac2511a292984
              ask_user_question_timeout_enabled: None,
              zdr_access_enabled: false,
              usage_billing_redirect_url: None,
-@@ -6054,6 +6058,7 @@ pub(crate) mod tests {
-             coding_data_write_seq: 0,
-             show_tips: None,
-             auto_update: None,
-+            session_writeback: None,
-             ask_user_question_timeout_enabled: None,
-             zdr_access_enabled: false,
-             usage_billing_redirect_url: None,
+diff --git a/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs b/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
+index f31b8245aad25b16d6e3e821b60917faf79b08ea..90863a5b77bfef276023bd5e6549d61512966066 100644
+--- a/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
++++ b/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
+@@ -185,6 +185,7 @@ pub(crate) fn test_app() -> AppView {
+         coding_data_write_seq: 0,
+         show_tips: None,
+         auto_update: None,
++        session_writeback: None,
+         ask_user_question_timeout_enabled: None,
+         zdr_access_enabled: false,
+         usage_billing_redirect_url: None,
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
-index 0bebd95ef1d6b0449b67c0c6806a3b21eeda8eb8..01372c79548fb7de38aff1e7de4a8f0e93717894 100644
+index 84397c33899e705fce0ce799e96eca5975ee6de9..44f1210e8ef57b5af5df2d67fb34f88f0dba3088 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
 @@ -1305,6 +1305,7 @@ pub(super) fn dispatch_dashboard_dispatch_slash(app: &mut AppView, text: String)
@@ -287,7 +292,7 @@ index d0918ece880f45bd00ff29d44de8e67b29461c4e..df1d36a0ed81384aba575e6b1c14de76
          ("fork_secondary_model", SettingValue::String(s)) => {
              let restored = if s.is_empty() {
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
-index 81f358fdb2201f57bf40de295cec2dc2b21b6faf..bec6c5c2bd5f8c522f8623d9c1869de6b9b17644 100644
+index fdb35d4340edb205905a90472f643e00e79e42fa..54927b0244b23394368a873b561a966c36a9cfef 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
 @@ -173,6 +173,7 @@ fn test_app() -> AppView {
@@ -314,7 +319,7 @@ index bf5f91f714c4e26c8aa98bca9d4bd37ddff5d0ee..9c0b0a9a534c26062f3161bdf214e82f
              let _ = dispatch(Action::SetVimMode(true), app);
          }
 diff --git a/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs b/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs
-index a334a27417955d54361aeac31486fc50f5feeee1..91d2e0a56b286bae5aa14e16f848a4ae08d71396 100644
+index 963c821dcff87085d076a7f49f4f0ee43ee825c9..684a5f89bc991fa69cf9b231e813247010e4d0cc 100644
 --- a/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs
 @@ -1418,6 +1418,14 @@ pub(crate) async fn persist_setting(
@@ -333,10 +338,10 @@ index a334a27417955d54361aeac31486fc50f5feeee1..91d2e0a56b286bae5aa14e16f848a4ae
              let SettingValue::String(s) = value else {
                  return Err(kind_mismatch("fork_secondary_model", "String", &value));
 diff --git a/crates/codegen/xai-grok-pager/src/app/event_loop.rs b/crates/codegen/xai-grok-pager/src/app/event_loop.rs
-index 6e68d2cbc600f40fc35bac48f6b6022be9cfbb39..21929fb2f1bed1ab07dfe89a77d87d5709c6ff8e 100644
+index 9e71c9ae7882c2a40ce1cecb594acdfb1b21dd25..c69c38188d285a1d7cdcdeacb0b60ee2246aa8b2 100644
 --- a/crates/codegen/xai-grok-pager/src/app/event_loop.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/event_loop.rs
-@@ -1436,6 +1436,7 @@ pub(crate) async fn run(
+@@ -1550,6 +1550,7 @@ pub(crate) async fn run(
      let config_session_bools = load_initial_config_session_bools();
      app.show_tips = config_session_bools.show_tips;
      app.auto_update = config_session_bools.auto_update;
@@ -344,7 +349,7 @@ index 6e68d2cbc600f40fc35bac48f6b6022be9cfbb39..21929fb2f1bed1ab07dfe89a77d87d57
      app.ask_user_question_timeout_enabled = config_session_bools.ask_user_question_timeout_enabled;
      // Prime thread-local caches so first render doesn't hit disk.
      crate::appearance::cache::prime(&app.current_ui);
-@@ -2944,6 +2945,7 @@ pub(crate) fn load_initial_ui_config() -> xai_grok_shell::agent::config::UiConfi
+@@ -3090,6 +3091,7 @@ pub(crate) fn load_initial_ui_config() -> xai_grok_shell::agent::config::UiConfi
  struct InitialConfigSessionBools {
      show_tips: Option<bool>,
      auto_update: Option<bool>,
@@ -352,7 +357,7 @@ index 6e68d2cbc600f40fc35bac48f6b6022be9cfbb39..21929fb2f1bed1ab07dfe89a77d87d57
      ask_user_question_timeout_enabled: Option<bool>,
  }
  
-@@ -2955,6 +2957,7 @@ fn load_initial_config_session_bools() -> InitialConfigSessionBools {
+@@ -3101,6 +3103,7 @@ fn load_initial_config_session_bools() -> InitialConfigSessionBools {
      InitialConfigSessionBools {
          show_tips: cli_bool("show_tips"),
          auto_update: cli_bool("auto_update"),
@@ -361,10 +366,10 @@ index 6e68d2cbc600f40fc35bac48f6b6022be9cfbb39..21929fb2f1bed1ab07dfe89a77d87d57
              .get("toolset")
              .and_then(|t| t.get("ask_user_question"))
 diff --git a/crates/codegen/xai-grok-pager/src/settings/defs.rs b/crates/codegen/xai-grok-pager/src/settings/defs.rs
-index 5b564add3d8beb4685d78064da0a3410f8ea5f05..c37c7f7325a6641efb0ef5bcba6c64b5d66a2921 100644
+index 60a20ab7d2172a9f0e692c99a20cc4f2f15845d6..e28461b461a132cdb5f57f5792649521e376000c 100644
 --- a/crates/codegen/xai-grok-pager/src/settings/defs.rs
 +++ b/crates/codegen/xai-grok-pager/src/settings/defs.rs
-@@ -1174,6 +1174,36 @@ pub fn default_settings() -> Vec<SettingMeta> {
+@@ -1176,6 +1176,36 @@ pub fn default_settings() -> Vec<SettingMeta> {
              restart_required: false,
              hidden_in_minimal: false,
          },
@@ -402,10 +407,10 @@ index 5b564add3d8beb4685d78064da0a3410f8ea5f05..c37c7f7325a6641efb0ef5bcba6c64b5
          // config.toml. Read by the pager via `appearance::permission_cursor`.
          // Canonical `always_allow_all_sessions` (the effective default) lands
 diff --git a/crates/codegen/xai-grok-pager/src/settings/registry.rs b/crates/codegen/xai-grok-pager/src/settings/registry.rs
-index 8dd48dc5d706627ad4e55d3b877dc98007258e1b..60b5ffe60803e6279ee8acd222c199f1811ef86d 100644
+index cf7cc952ddf50730cad35925e4e4e0e01739063e..38cdbef1d2f46dfb16d36841bcf15e6240477a0c 100644
 --- a/crates/codegen/xai-grok-pager/src/settings/registry.rs
 +++ b/crates/codegen/xai-grok-pager/src/settings/registry.rs
-@@ -280,6 +280,10 @@ pub struct PagerLocalSnapshot {
+@@ -281,6 +281,10 @@ pub struct PagerLocalSnapshot {
      /// `[cli].auto_update` mirror. `None` = no TOML override → default `false`
      /// in Grok Privacy (no silent x.ai channel updates).
      pub auto_update: Option<bool>,
@@ -416,7 +421,7 @@ index 8dd48dc5d706627ad4e55d3b877dc98007258e1b..60b5ffe60803e6279ee8acd222c199f1
      /// Process-wide vim-mode scrollback flag. Mirrors
      /// `appearance::cache::load_vim_mode()` at snapshot time.
      pub vim_mode: bool,
-@@ -321,6 +325,7 @@ impl Default for PagerLocalSnapshot {
+@@ -322,6 +326,7 @@ impl Default for PagerLocalSnapshot {
              plan_mode_active: false,
              show_tips: None,
              auto_update: None,
@@ -424,7 +429,7 @@ index 8dd48dc5d706627ad4e55d3b877dc98007258e1b..60b5ffe60803e6279ee8acd222c199f1
              vim_mode: false,
              // Matches the registry default and
              // `appearance::cache::SCROLL_SPEED_DEFAULT`. Bare `u8::default()`
-@@ -699,6 +704,7 @@ pub fn current_value_for(
+@@ -702,6 +707,7 @@ pub fn current_value_for(
          // CLI batch: snapshot mirrors; `None` → effective default `true`.
          "show_tips" => Some(SettingValue::Bool(pager.show_tips.unwrap_or(true))),
          "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(false))),
@@ -432,7 +437,7 @@ index 8dd48dc5d706627ad4e55d3b877dc98007258e1b..60b5ffe60803e6279ee8acd222c199f1
          // fork_secondary_model: baseline value folds to empty string. The
          // mirror persists the ModelId slug but the DynamicEnum canonicals
          // are catalog display names, so resolve via the snapshot; a stale
-@@ -961,6 +967,13 @@ mod tests {
+@@ -964,6 +970,13 @@ mod tests {
                           (no silent x.ai channel updates)"
                      );
                  }
@@ -471,7 +476,7 @@ index 747eab5c2a109c3d21f6ee76a857286b0f83212f..cbfeb382f63161b1e51e44be1eae9ac5
              "default_model",
              // Models category. `default_reasoning_effort`,
 diff --git a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
-index dec02ef6f4ab97dad8379be62271971c78802e98..193e4158416ebbbe08007310426ea390bd2ac0e3 100644
+index a25377c1c4b862be7939b09728aa907158a4ec14..7bbe1eca44c1afcf6d49233e3cdd1786eb26c817 100644
 --- a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
 +++ b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
 @@ -58,6 +58,7 @@ const ALL_SETTINGS_EXERCISED: &[&str] = &[
@@ -516,7 +521,7 @@ index dec02ef6f4ab97dad8379be62271971c78802e98..193e4158416ebbbe08007310426ea390
              | SettingsKeyOutcome::Action(Action::SetRespectManualFolds(_))
              | SettingsKeyOutcome::Action(Action::SetShowThinkingBlocks(_))
              | SettingsKeyOutcome::Action(Action::SetPromptSuggestions(_))
-@@ -7794,3 +7801,43 @@ fn collapsed_edit_blocks_renders_under_appearance_category_shell_owned() {
+@@ -7796,3 +7803,43 @@ fn collapsed_edit_blocks_renders_under_appearance_category_shell_owned() {
           Appearance order: {keys:?}"
      );
  }
@@ -561,10 +566,10 @@ index dec02ef6f4ab97dad8379be62271971c78802e98..193e4158416ebbbe08007310426ea390
 +    assert_set_bool_action(outcome, "session_writeback", true);
 +}
 diff --git a/crates/codegen/xai-grok-shell/src/agent/config.rs b/crates/codegen/xai-grok-shell/src/agent/config.rs
-index dfc7e5dd15891391fe289b046038300d61934f52..6de2b094547cd6853cc7a2deaa6e9f94bb23f06f 100644
+index 34ba0da6ccee345245a8715ecf5d7817cb557119..9865d4f21e779c70c9ab86b76b0f54decfc99500 100644
 --- a/crates/codegen/xai-grok-shell/src/agent/config.rs
 +++ b/crates/codegen/xai-grok-shell/src/agent/config.rs
-@@ -1010,6 +1010,12 @@ pub struct CliConfig {
+@@ -1011,6 +1011,12 @@ pub struct CliConfig {
      /// Group sessions by repo in the picker and CLI listings.
      #[serde(skip_serializing_if = "Option::is_none")]
      pub session_picker_grouped: Option<bool>,
@@ -663,10 +668,10 @@ index 009a59da19b1b502299ff2d65cfae999ff832074..f2030557ac58b367dce0c72851a2402d
      /// requires grok.com auth (it syncs to grok-code-backend). This is the
      /// single home for that gate, used at boot ([`crate::agent::init`]) and by
 diff --git a/crates/codegen/xai-grok-shell/src/session/persistence.rs b/crates/codegen/xai-grok-shell/src/session/persistence.rs
-index 0f7b1927a2648f6f658e7a787b2ad383ddf0c675..e21d7fb369dd9840c351bdbbd5b8caa81d86737b 100644
+index 315b3678654c32d94abc746eee3f227449cc8289..f167c8610af2bbfddade4d1f055bee10832d273e 100644
 --- a/crates/codegen/xai-grok-shell/src/session/persistence.rs
 +++ b/crates/codegen/xai-grok-shell/src/session/persistence.rs
-@@ -2616,6 +2616,13 @@ fn init_remote_sync(
+@@ -2056,6 +2056,13 @@ fn init_remote_sync(
      match storage_mode {
          StorageMode::Local => Ok(None),
          StorageMode::Writeback => {
@@ -814,12 +819,12 @@ index 8ade06704bf2baeddb34f7d5c61dc48b13e05f38..75611de83d7dff63a1fe9b1ac8007b5d
 +    }
 +}
 
-base-commit: be713136d2a69080743a3f6b3c72077057e5948f
-prerequisite-patch-id: 9a4cd1267a90b73a57b46ad775f28e5425e31e74
+base-commit: e5fd4816d43260c15ba785f103990c1ed6cea230
+prerequisite-patch-id: fe1545b5dd57fa5184617b6a26bafe169b649d48
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
-prerequisite-patch-id: 6e1878b92192e1b56547e2c0fe688598a31912e1
+prerequisite-patch-id: 1b982d3dc937169ac681757b419207aadef2520d
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
-prerequisite-patch-id: fb122d682aaf11ed0733882cf0c2ef6c678a9cbb
+prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
 -- 
 2.43.0
