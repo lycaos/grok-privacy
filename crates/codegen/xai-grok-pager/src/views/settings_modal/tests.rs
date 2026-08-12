@@ -7108,6 +7108,13 @@ fn max_thoughts_width_preview_content_is_italic() {
 /// now matches that contract.
 #[test]
 fn max_thoughts_width_preview_title_styling_distinguishes_from_content() {
+    // Reads `Theme::current()`, a process-global: without this lock a
+    // concurrent theme-swapping test makes the comparison race (observed
+    // failing roughly one run in five). Same guard as
+    // `with_theme_test_env` and the thinking-block styling test.
+    let _guard = crate::theme::cache::test_lock()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let area = Rect {
         x: 0,
         y: 0,
@@ -8118,7 +8125,8 @@ fn locked_coding_data_sharing_row_renders_locked_value_without_chevron() {
     let rect = s.row_rects[idx];
     let line = buf_row_text(&buf, rect.y, area.x, area.width);
     assert!(
-        line.contains("Opt out \u{00B7} Admin Managed"),
+        // The choice label carries the fork's "(locked)" suffix.
+        line.contains("Opt out (locked) \u{00B7} Admin Managed"),
         "team-managed lock must append ` · Admin Managed`: {line:?}"
     );
     assert!(
@@ -8134,7 +8142,11 @@ fn locked_coding_data_sharing_row_renders_locked_value_without_chevron() {
     let rect = s.row_rects[idx];
     let line = buf_row_text(&buf, rect.y, area.x, area.width);
     assert!(
-        line.contains("Opt out") && !line.contains("locked"),
+        // Upstream distinguished the arms by the absence of the word "locked".
+        // This fork bakes "(locked)" into the choice label itself — opt-in is
+        // never offered — so the account-level lock shows up as the ` · Admin
+        // Managed` / `ZDR` suffix instead.
+        line.contains("Opt out") && !line.contains("Admin Managed") && !line.contains("ZDR"),
         "unlocked row must show the plain value: {line:?}"
     );
     assert!(

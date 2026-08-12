@@ -419,11 +419,14 @@ fn space_on_confirm_before_rewind_dispatches_typed_setter() {
 
 #[test]
 fn space_on_combine_queued_prompts_dispatches_typed_setter() {
+    // The modal reads this from the appearance cache, which seeds from the
+    // *user's* `~/.grok/config.toml` — not from `UiConfig::default()`. Pin it,
+    // or a developer who turned the setting on inverts the expected toggle.
+    xai_grok_pager::appearance::cache::set_combine_queued_prompts(false);
     let mut s = make_state();
     navigate_to(&mut s, "combine_queued_prompts");
     let outcome = handle_settings_key(&mut s, &press(KeyCode::Char(' ')));
-    let default_on = UiConfig::default().combine_queued_prompts.unwrap_or(false);
-    assert_set_bool_action(outcome, "combine_queued_prompts", !default_on);
+    assert_set_bool_action(outcome, "combine_queued_prompts", true);
 }
 
 #[test]
@@ -677,6 +680,9 @@ fn mouse_click_on_page_flip_on_send_indicator_toggles_in_one_click() {
 
 #[test]
 fn mouse_click_on_combine_queued_prompts_indicator_toggles_in_one_click() {
+    // Cache-backed like the space-toggle above: pin it so the user's own
+    // config.toml cannot decide what this test expects.
+    xai_grok_pager::appearance::cache::set_combine_queued_prompts(false);
     let mut s = make_state();
     synth_rects(&mut s);
     let row_y = row_idx_for(&s, "combine_queued_prompts") as u16;
@@ -686,8 +692,7 @@ fn mouse_click_on_combine_queued_prompts_indicator_toggles_in_one_click() {
         72,
         row_y,
     );
-    let default_on = UiConfig::default().combine_queued_prompts.unwrap_or(false);
-    assert_set_bool_action(outcome, "combine_queued_prompts", !default_on);
+    assert_set_bool_action(outcome, "combine_queued_prompts", true);
 }
 
 #[test]
@@ -1972,6 +1977,8 @@ fn defaults_round_trip_through_registry() {
     xai_grok_pager::appearance::cache::set_group_tool_verbs(true);
     xai_grok_pager::appearance::cache::set_page_flip_on_send(true);
     xai_grok_pager::appearance::cache::set_combine_queued_prompts(false);
+    // Same cache, same trap: unpinned it seeds from the user's config.toml.
+    xai_grok_pager::appearance::cache::set_collapsed_edit_blocks(false);
     xai_grok_pager::appearance::cache::set_scroll_mode(
         xai_grok_pager::appearance::ScrollMode::Auto,
     );
@@ -4751,97 +4758,46 @@ fn pr9_enter_on_coding_data_sharing_row_enters_picking_enum() {
     }
 }
 
-/// Nav in picker must NOT dispatch preview (async ACP).
+/// Grok Privacy reduces `coding_data_sharing` to a single opt-out choice.
+/// Upstream shipped two tests here — one for picker navigation, one for the
+/// Enter commit of the *other* choice — and neither premise survives a
+/// one-entry catalog. What matters instead is that no sequence of keys in
+/// that picker can commit an opt-in.
+///
+/// Note the picker still opens on an unlocked snapshot (this state does not
+/// occur in the product, where the account lock keeps it shut — see
+/// `locked_coding_data_sharing_row_does_not_open_picker`); this test is the
+/// belt to that suspenders.
 #[test]
-fn pr9_coding_data_sharing_picker_nav_does_not_dispatch_preview() {
-    for nav_key in &[
+fn privacy_coding_data_sharing_picker_cannot_commit_opt_in() {
+    let mut s = make_state();
+    navigate_to(&mut s, "coding_data_sharing");
+    let _ = handle_settings_key(&mut s, &press(KeyCode::Enter));
+
+    // Nav cannot reach another choice: there is none to reach.
+    for nav in [
         KeyCode::Down,
         KeyCode::Char('j'),
         KeyCode::Up,
         KeyCode::Char('k'),
     ] {
-        let mut s = make_state();
-        navigate_to(&mut s, "coding_data_sharing");
-        let _ = handle_settings_key(&mut s, &press(KeyCode::Enter));
-        assert!(matches!(s.mode(), SettingsModalMode::PickingEnum { .. }));
-
-        // Pre-position so the nav key under test has room to move no matter
-        // which choice the registry default opens the picker on (Up needs
-        // idx > 0, Down needs idx < last).
-        if matches!(nav_key, KeyCode::Up | KeyCode::Char('k')) {
-            let _ = handle_settings_key(&mut s, &press(KeyCode::Down));
-        } else {
-            let _ = handle_settings_key(&mut s, &press(KeyCode::Up));
-        }
-
-        let outcome = handle_settings_key(&mut s, &press(*nav_key));
-        assert!(
-            matches!(outcome, SettingsKeyOutcome::Changed),
-            "Nav key {nav_key:?} in coding_data_sharing picker MUST NOT dispatch a preview \
-             Action — that would fire a network round-trip per keystroke. Got {outcome:?}",
-        );
-        assert!(matches!(s.mode(), SettingsModalMode::PickingEnum { .. }));
+        let _ = handle_settings_key(&mut s, &press(nav));
     }
-}
 
-/// Enter commits `SetCodingDataSharing { opted_in }` (opt-in→true).
-#[test]
-fn pr9_coding_data_sharing_picker_enter_dispatches_set_commit() {
-    let reg = SettingsRegistry::defaults();
-    let meta = reg.find("coding_data_sharing").unwrap();
-    let (default_canonical, choices) = match &meta.kind {
-        SettingKind::Enum {
-            default, choices, ..
-        } => (*default, *choices),
-        _ => panic!("coding_data_sharing must be Enum"),
-    };
-    // Resolve "the other" canonical from the registry rather than
-    // hardcoding — robust against future catalog additions.
-    let other_canonical = choices
-        .iter()
-        .map(|c| c.canonical)
-        .find(|c| *c != default_canonical)
-        .expect("coding_data_sharing must have ≥2 choices");
-    let expected_opted_in = match other_canonical {
-        "opt-in" => true,
-        "opt-out" => false,
-        _ => panic!("unexpected canonical: {other_canonical:?}"),
-    };
-
-    let mut s = make_state();
-    navigate_to(&mut s, "coding_data_sharing");
-    let _ = handle_settings_key(&mut s, &press(KeyCode::Enter));
-    // Nav to the OTHER choice — direction depends on where the registry
-    // default opened the picker, so derive it instead of hardcoding Down.
-    let default_idx = choices
-        .iter()
-        .position(|c| c.canonical == default_canonical)
-        .expect("default must be a registry choice");
-    let other_idx = choices
-        .iter()
-        .position(|c| c.canonical == other_canonical)
-        .expect("other choice must be in the registry");
-    let nav = if other_idx > default_idx {
-        KeyCode::Down
-    } else {
-        KeyCode::Up
-    };
-    let _ = handle_settings_key(&mut s, &press(nav));
-    // Enter → commit.
-    let outcome = handle_settings_key(&mut s, &press(KeyCode::Enter));
-    match outcome {
+    match handle_settings_key(&mut s, &press(KeyCode::Enter)) {
         SettingsKeyOutcome::Action(Action::SetCodingDataSharing { opted_in }) => {
-            assert_eq!(
-                opted_in, expected_opted_in,
-                "Enter must commit `{other_canonical}` → SetCodingDataSharing(opted_in={expected_opted_in})"
+            assert!(
+                !opted_in,
+                "the picker must never be able to commit an opt-in"
             );
         }
-        other => panic!("expected Action::SetCodingDataSharing commit, got {other:?}"),
+        // Re-committing the current value may also be a no-op — equally fine,
+        // as long as it is not some other Action.
+        other => assert!(
+            !matches!(other, SettingsKeyOutcome::Action(_)),
+            "unexpected Action from the single-choice picker: {other:?}"
+        ),
     }
-    assert!(
-        matches!(s.mode(), SettingsModalMode::Browse),
-        "Enter commit must return to Browse"
-    );
 }
 
 /// Esc in non-preview picker returns to Browse without Action.
@@ -4922,7 +4878,13 @@ fn pr9_coding_data_sharing_choices_use_canonical_strings() {
     );
 }
 
-/// Search "privacy" finds exactly `coding_data_sharing`.
+/// Search "privacy" finds the privacy-bearing rows.
+///
+/// Upstream pinned this to exactly one hit. This fork has three legitimate
+/// ones — the retention row, the session-sync switch, and auto-update, whose
+/// description explains why vendor updates are disabled in Grok Privacy — so
+/// the assertion is the presence check the upstream comment prescribed for
+/// exactly this case, not a looser count.
 #[test]
 fn pr9_search_privacy_matches_coding_data_sharing() {
     let reg = SettingsRegistry::defaults();
@@ -4931,21 +4893,16 @@ fn pr9_search_privacy_matches_coding_data_sharing() {
     // part of `search()`'s haystack (search ignores categories);
     // matches come from the meta's keywords + label + description.
     let hit_keys: Vec<&str> = hits.iter().map(|m| m.key).collect();
-    assert_eq!(
-        hits.len(),
-        1,
-        "search('privacy') must return EXACTLY one result (coding_data_sharing). \
-         Found {} results: {hit_keys:?}. \
-         If this fails because another setting added 'privacy' to its keywords/label/\
-         description, decide: (a) is 'privacy' a real keyword for that setting? If yes, \
-         loosen this assertion to a presence-only check `hit_keys.contains(&\"coding_data_sharing\")`. \
-         (b) If no, remove 'privacy' from the other setting's haystack — search relevance \
-         is more important than tag promiscuity.",
-        hits.len(),
-    );
+    for expected in ["coding_data_sharing", "session_writeback"] {
+        assert!(
+            hit_keys.contains(&expected),
+            "search('privacy') must surface `{expected}`; found {hit_keys:?}"
+        );
+    }
+    // Relevance still matters: the retention row stays first.
     assert_eq!(
         hits[0].key, "coding_data_sharing",
-        "search('privacy') unique result must be coding_data_sharing"
+        "search('privacy') must rank coding_data_sharing first, got {hit_keys:?}"
     );
 }
 
@@ -5444,8 +5401,10 @@ fn pr10_enter_on_plan_mode_row_enters_picking_enum() {
 /// **Regression test.** Up/Down/j/k nav in the `plan_mode` picker
 /// MUST NOT dispatch a preview Action — that would fire an ACP
 /// round-trip per keystroke (the ACP path is eager). Mirror of
-/// `pr6_permission_mode_picker_nav_does_not_dispatch_preview` and
-/// `pr9_coding_data_sharing_picker_nav_does_not_dispatch_preview`.
+/// `pr6_permission_mode_picker_nav_does_not_dispatch_preview` (the
+/// `coding_data_sharing` counterpart is gone: this fork locks that row to a
+/// single choice, so it has no picker — see
+/// `privacy_coding_data_sharing_picker_cannot_commit_opt_in`).
 #[test]
 fn pr10_plan_mode_picker_nav_does_not_dispatch_preview() {
     for nav_key in &[
@@ -6360,7 +6319,10 @@ fn pr13_space_on_auto_update_dispatches_typed_setter() {
     let mut s = make_state();
     navigate_to(&mut s, "auto_update");
     let outcome = handle_settings_key(&mut s, &press(KeyCode::Char(' ')));
-    assert_set_bool_action(outcome, "auto_update", false);
+    // Grok Privacy ships auto-update off (vendor channels are hard-disabled),
+    // so the toggle lands on `true` — upstream, where it defaults on, this
+    // expected `false`.
+    assert_set_bool_action(outcome, "auto_update", true);
 }
 
 /// Value-column click on `show_tips` toggles in one click.
@@ -6404,7 +6366,8 @@ fn pr13_mouse_click_on_auto_update_two_stage_select_then_toggle() {
         10,
         row_y,
     );
-    assert_set_bool_action(outcome, "auto_update", false);
+    // Off by default in this fork, so the toggle lands on `true`.
+    assert_set_bool_action(outcome, "auto_update", true);
 }
 
 /// CLI-batch settings are all `restart_required: true`.
