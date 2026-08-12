@@ -965,12 +965,31 @@ pub enum StorageMode {
     /// Local + HTTP flush at end of turn
     Writeback,
 }
+/// Grok Privacy: `[cli].session_writeback` from the effective config layers.
+///
+/// The single switch that can turn session writeback on. Read from disk rather
+/// than threaded through [`StorageMode::resolve`]'s signature so upstream's
+/// call sites stay untouched. Absent, unreadable or non-bool all mean "not
+/// opted in": this fails closed.
+pub fn session_writeback_opt_in() -> bool {
+    load_effective_config()
+        .ok()
+        .and_then(|root| root.get("cli")?.get("session_writeback")?.as_bool())
+        .unwrap_or(false)
+}
+
 impl StorageMode {
     /// Resolve from all sources: CLI > env var > remote settings > default (Local).
+    ///
+    /// Grok Privacy short-circuits the whole chain: see
+    /// [`Self::resolve_privacy`].
     pub fn resolve(
         cli_override: Option<&str>,
         remote: Option<&crate::util::config::RemoteSettings>,
     ) -> Self {
+        if xai_grok_version::PRIVACY_BUILD {
+            return Self::resolve_privacy(cli_override, remote, session_writeback_opt_in());
+        }
         if let Some(mode) = cli_override {
             match mode {
                 "writeback" => return Self::Writeback,
@@ -992,6 +1011,48 @@ impl StorageMode {
         }
         Self::Local
     }
+
+    /// Grok Privacy's replacement for [`Self::resolve`]'s precedence chain.
+    ///
+    /// Writeback pushes whole sessions — prompts, replies, tool calls and the
+    /// absolute working directory — to the vendor session backend. In this
+    /// fork that is a decision the user makes in `/config`, and nothing else:
+    ///
+    /// - `session_writeback` opted in → `Writeback` (upstream still requires
+    ///   xAI auth downstream in [`crate::agent::init`], which is unchanged);
+    /// - otherwise → `Local`, whatever `--storage-mode`, `GROK_STORAGE_MODE`
+    ///   or the backend-served `writeback_enabled` ask for.
+    ///
+    /// Asking for *more* privacy is never refused, so an explicit `local`
+    /// still wins over the opt-in.
+    ///
+    /// Pure on purpose: the privacy contract drives this entry point directly
+    /// rather than staging a config file.
+    #[doc(hidden)]
+    pub fn resolve_privacy(
+        cli_override: Option<&str>,
+        remote: Option<&crate::util::config::RemoteSettings>,
+        opt_in: bool,
+    ) -> Self {
+        let env_mode = std::env::var("GROK_STORAGE_MODE").ok();
+        if cli_override == Some("local") || env_mode.as_deref() == Some("local") {
+            return Self::Local;
+        }
+        if opt_in {
+            return Self::Writeback;
+        }
+        let asked = cli_override == Some("writeback")
+            || env_mode.as_deref() == Some("writeback")
+            || remote.is_some_and(|r| r.writeback_enabled == Some(true));
+        if asked {
+            tracing::warn!(
+                "privacy: session writeback refused — sessions stay on this machine. \
+                 Enable it in /config (Privacy → Session sync) to store them server-side."
+            );
+        }
+        Self::Local
+    }
+
     /// Resolve from remote settings, enforcing the rule that `Writeback`
     /// requires grok.com auth (it syncs to grok-code-backend). This is the
     /// single home for that gate, used at boot ([`crate::agent::init`]) and by

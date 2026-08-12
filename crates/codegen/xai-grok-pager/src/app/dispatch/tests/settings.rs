@@ -1630,6 +1630,10 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
         "auto_update" => {
             let _ = dispatch(Action::SetAutoUpdate(false), app);
         }
+        // Off by default in Grok Privacy, so "away" is on.
+        "session_writeback" => {
+            let _ = dispatch(Action::SetSessionWriteback(true), app);
+        }
         "vim_mode" => {
             let _ = dispatch(Action::SetVimMode(true), app);
         }

@@ -11,7 +11,8 @@ use super::setters::{
     set_multiline_mode, set_page_flip_on_send_inner, set_prompt_suggestions_inner,
     set_remember_tool_approvals_inner, set_render_mermaid_inner, set_respect_manual_folds_inner,
     set_screen_mode_inner, set_scroll_lines_inner, set_scroll_mode_inner, set_scroll_speed_inner,
-    set_show_thinking_blocks_inner, set_show_tips_inner, set_simple_mode_inner, set_theme_inner,
+    set_session_writeback_inner, set_show_thinking_blocks_inner, set_show_tips_inner,
+    set_simple_mode_inner, set_theme_inner,
     set_timeline_inner, set_timestamps, set_timestamps_inner, set_vim_mode_inner,
     set_voice_capture_mode_inner, set_voice_keybind_enabled_inner, set_voice_stt_language_inner,
 };
@@ -50,6 +51,7 @@ pub(crate) fn refresh_open_settings_modals(app: &mut AppView) {
     let coding_data_sharing_lock_from_app = app.coding_data_sharing_lock();
     let show_tips_from_app = app.show_tips;
     let auto_update_from_app = app.auto_update;
+    let session_writeback_from_app = app.session_writeback;
     let respect_manual_folds_from_app = app.appearance.scrollback.scroll.respect_manual_folds;
     let auto_mode_gate_from_app = app.auto_mode_gate;
     let ask_user_question_timeout_enabled_from_app = app.ask_user_question_timeout_enabled;
@@ -87,6 +89,7 @@ pub(crate) fn refresh_open_settings_modals(app: &mut AppView) {
                 plan_mode_active: agent.plan_mode_pending.unwrap_or(agent.plan_mode_active),
                 show_tips: show_tips_from_app,
                 auto_update: auto_update_from_app,
+                session_writeback: session_writeback_from_app,
                 vim_mode: crate::appearance::cache::load_vim_mode(),
                 scroll_speed: crate::appearance::cache::load_scroll_speed(),
                 respect_manual_folds: respect_manual_folds_from_app,
@@ -191,6 +194,7 @@ pub(in crate::app::dispatch) fn dispatch_open_settings(
     let coding_data_sharing_lock_from_app = app.coding_data_sharing_lock();
     let show_tips_from_app = app.show_tips;
     let auto_update_from_app = app.auto_update;
+    let session_writeback_from_app = app.session_writeback;
     let respect_manual_folds_from_app = app.appearance.scrollback.scroll.respect_manual_folds;
     let auto_mode_gate_from_app = app.auto_mode_gate;
     let ask_user_question_timeout_enabled_from_app = app.ask_user_question_timeout_enabled;
@@ -237,6 +241,7 @@ pub(in crate::app::dispatch) fn dispatch_open_settings(
         plan_mode_active: agent.plan_mode_pending.unwrap_or(agent.plan_mode_active),
         show_tips: show_tips_from_app,
         auto_update: auto_update_from_app,
+        session_writeback: session_writeback_from_app,
         vim_mode: crate::appearance::cache::load_vim_mode(),
         scroll_speed: crate::appearance::cache::load_scroll_speed(),
         respect_manual_folds: respect_manual_folds_from_app,
@@ -734,6 +739,7 @@ pub(crate) fn build_pager_snapshot(app: &AppView) -> crate::settings::PagerLocal
         plan_mode_active: agent_plan_mode(app),
         show_tips: app.show_tips,
         auto_update: app.auto_update,
+        session_writeback: app.session_writeback,
         vim_mode: crate::appearance::cache::load_vim_mode(),
         scroll_speed: crate::appearance::cache::load_scroll_speed(),
         respect_manual_folds: app.appearance.scrollback.scroll.respect_manual_folds,
@@ -897,6 +903,7 @@ pub(in crate::app::dispatch) fn action_for_reset(
         // show_tips / auto_update / display_refresh_auto_cadence: direct bool.
         ("show_tips", SettingValue::Bool(b)) => Some(Action::SetShowTips(*b)),
         ("auto_update", SettingValue::Bool(b)) => Some(Action::SetAutoUpdate(*b)),
+        ("session_writeback", SettingValue::Bool(b)) => Some(Action::SetSessionWriteback(*b)),
         ("display_refresh_auto_cadence", SettingValue::Bool(b)) => {
             Some(Action::SetDisplayRefreshAutoCadence(*b))
         }
@@ -1200,6 +1207,13 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
                 app.auto_update = None;
             } else {
                 set_auto_update_inner(app, *b);
+            }
+        }
+        ("session_writeback", SettingValue::Bool(b)) => {
+            if Some(*b) == pr13_effective_default("session_writeback") {
+                app.session_writeback = None;
+            } else {
+                set_session_writeback_inner(app, *b);
             }
         }
         // fork_secondary_model: empty rollback restores baseline default.
