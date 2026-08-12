@@ -1,0 +1,11 @@
+# Locked upstream base for the Grok Privacy patch queue.
+schema = 1
+
+repository = "https://github.com/xai-org/grok-build.git"
+commit = "be713136d2a69080743a3f6b3c72077057e5948f"
+source_rev = "5d08d7e4123092567ccd584cd9f99afa2972065c"
+version = "1.0.1"
+
+patchset_revision = 1
+patch_tip = "363d412380b5647155f80c4bb50cb5551144d49b"
+product_tip = "b2883318c83b4a971dd0fc590ed6ee59c030eb26"
