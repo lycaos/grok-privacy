@@ -682,6 +682,7 @@ fn rows_contain_categories_and_settings_through_pr_14() {
             "plan_mode",
             // SHELL-owned coding_data_sharing (Privacy category).
             "coding_data_sharing",
+            "session_writeback",
             // SHELL-owned default_model (Models category).
             "default_model",
             // Models category. `default_reasoning_effort`,

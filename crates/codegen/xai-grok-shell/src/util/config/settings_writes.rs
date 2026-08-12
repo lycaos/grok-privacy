@@ -90,6 +90,13 @@ pub async fn set_compact_mode(value: bool) -> Result<()> {
     update_config(|cfg| cfg.ui.compact_mode = value).await
 }
 
+/// Persist `[cli].session_writeback` via `update_config`. Grok Privacy's only
+/// switch for server-side session storage — see
+/// [`crate::config::StorageMode::resolve_privacy`].
+pub async fn set_session_writeback(value: bool) -> Result<()> {
+    update_config(|cfg| cfg.cli.session_writeback = Some(value)).await
+}
+
 /// Persist `[ui].show_timestamps` via `update_config`. `UiConfig::show_timestamps`
 /// is `Option<bool>` — pager-side `None` means "use default" — so we wrap.
 pub async fn set_show_timestamps(value: bool) -> Result<()> {
