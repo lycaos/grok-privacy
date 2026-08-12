@@ -1448,6 +1448,14 @@ pub(crate) async fn persist_setting(
                 .await
                 .map_err(|e| e.to_string())
         }
+        "session_writeback" => {
+            let SettingValue::Bool(b) = value else {
+                return Err(kind_mismatch("session_writeback", "Bool", &value));
+            };
+            xai_grok_shell::util::config::set_session_writeback(b)
+                .await
+                .map_err(|e| e.to_string())
+        }
         "fork_secondary_model" => {
             let SettingValue::String(s) = value else {
                 return Err(kind_mismatch("fork_secondary_model", "String", &value));
