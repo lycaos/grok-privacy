@@ -97,8 +97,11 @@ impl Agent {
     }
 
     /// Compact system prompt for post-compaction use.
-    pub fn compact_system_prompt(&self) -> &str {
-        crate::prompt::template::COMPACT_SYSTEM_PROMPT
+    ///
+    /// Honours `$GROK_HOME/prompts/compact-system.md` when present; otherwise
+    /// the built-in default. Returns an owned string so overrides can vary.
+    pub fn compact_system_prompt(&self) -> String {
+        crate::prompt::catalog::resolve_body(crate::prompt::catalog::PromptId::CompactSystem)
     }
 
     pub fn tool_bridge(&self) -> &Arc<ToolBridge> {
