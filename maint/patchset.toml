@@ -78,6 +78,17 @@ file = "0075-win-build-portability.patch"
 critical = true
 contracts = []
 
+[[patch]]
+id = "prompts-modal"
+file = "0078-prompts-modal.patch"
+# Critical on purpose. It is a feature, not a privacy guarantee, so the reflex
+# would be to file it with the trailing non-critical patches — but those are
+# skipped silently on conflict, and this patch exists precisely because the
+# feature once vanished that way (it lived outside the queue and the 1.0.1
+# repatch dropped it). A conflict here must stop the sync.
+critical = true
+contracts = []
+
 # Trailing non-critical: may be skipped on upstream conflict (draft PR still opens).
 [[patch]]
 id = "product-identity"

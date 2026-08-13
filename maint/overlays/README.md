@@ -131,6 +131,8 @@ User guide (upstream docs tree, still accurate for features):
 
 [`crates/codegen/xai-grok-pager/docs/user-guide/`](crates/codegen/xai-grok-pager/docs/user-guide/)
 
+Notable addition in this tree: **[`/prompts`](crates/codegen/xai-grok-pager/docs/user-guide/25-prompts.md)** — browse and edit system / subagent prompt templates; overrides and presets stay under `~/.grok` (not project git). See also [CHANGELOG Unreleased](crates/codegen/xai-grok-shell/CHANGELOG.md).
+
 ## Contributing
 
 External contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md)

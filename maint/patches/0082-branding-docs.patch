@@ -9,7 +9,7 @@ Gork-Risk: low
  CONTRIBUTING.md                              | 123 +++++++++--
  NOTICE                                       |  29 +++
  PRIVACY.md                                   | 107 ++++++++++
- README.md                                    | 208 +++++++++++--------
+ README.md                                    | 210 +++++++++++--------
  SECURITY.md                                  |  38 +++-
  crates/codegen/xai-grok-pager/src/app/cli.rs |   2 +-
  crates/codegen/xai-grok-pager/src/app/mod.rs |   2 +-
@@ -18,7 +18,7 @@ Gork-Risk: low
  docs/assets/gork-build-symbol-white.png      | Bin 0 -> 85782 bytes
  docs/assets/gork-build-tui-screenshot.jpg    | Bin 0 -> 287873 bytes
  docs/assets/made-with-grok-4.5.png           | Bin 0 -> 306285 bytes
- 12 files changed, 402 insertions(+), 107 deletions(-)
+ 12 files changed, 403 insertions(+), 108 deletions(-)
  create mode 100644 NOTICE
  create mode 100644 PRIVACY.md
  create mode 100644 docs/assets/gork-build-og.jpg
@@ -310,10 +310,10 @@ index 0000000000000000000000000000000000000000..d618e49c86cf39443c72e295896a6183
 +   `data_collection_disabled: true`.
 +3. Confirm `xai_grok_version::PRIVACY_BUILD` is `true` in your build.
 diff --git a/README.md b/README.md
-index 4569db83fe4fee02ba656f8eaa52db22e43e8e63..e40bc3b14aaad47d14c9566310ee23b1fa46d746 100644
+index f2e07f38abeec62ba128a29478bc993149af0a73..b7d6bfe3781e86a4cbf58a22a57d48cf3a8bfd5d 100644
 --- a/README.md
 +++ b/README.md
-@@ -2,139 +2,167 @@
+@@ -2,141 +2,169 @@
  
  <h1>
    <picture>
@@ -409,7 +409,8 @@ index 4569db83fe4fee02ba656f8eaa52db22e43e8e63..e40bc3b14aaad47d14c9566310ee23b1
 +  x.ai update channels (`x.ai/cli/install.*`); that path would replace this
 +  fork with official Grok Build. Update by rebuilding from source or installing
 +  community releases from **this** project.
-+
+ 
+-Prebuilt binaries are published for macOS, Linux, and Windows:
 +**What still leaves the machine:** whatever the agent must send to the Grok
 +**model API** to work (prompts + tool results for files it actually reads).
 +That is required for a cloud coding agent and is separate from the research /
@@ -417,8 +418,7 @@ index 4569db83fe4fee02ba656f8eaa52db22e43e8e63..e40bc3b14aaad47d14c9566310ee23b1
 +on top.
 +
 +## Build from source
- 
--Prebuilt binaries are published for macOS, Linux, and Windows:
++
 +Requirements: Rust (see `rust-toolchain.toml`), `protoc` (see `bin/protoc`).
  
  ```sh
@@ -502,7 +502,7 @@ index 4569db83fe4fee02ba656f8eaa52db22e43e8e63..e40bc3b14aaad47d14c9566310ee23b1
 -MCP servers, skills, plugins, hooks, headless mode, sandboxing, and more.
  
 -## Repository layout
-+## Contributing
++Notable addition in this tree: **[`/prompts`](crates/codegen/xai-grok-pager/docs/user-guide/25-prompts.md)** — browse and edit system / subagent prompt templates; overrides and presets stay under `~/.grok` (not project git). See also [CHANGELOG Unreleased](crates/codegen/xai-grok-shell/CHANGELOG.md).
  
 -| Path | Contents |
 -|------|----------|
@@ -514,17 +514,17 @@ index 4569db83fe4fee02ba656f8eaa52db22e43e8e63..e40bc3b14aaad47d14c9566310ee23b1
 -| `crates/codegen/...` | The rest of the CLI crate closure (config, MCP, markdown, sandbox, ...) |
 -| `crates/common/`, `crates/build/`, `prod/mc/` | Small shared leaf crates pulled in by the closure |
 -| `third_party/` | Vendored upstream source (Mermaid diagram stack) — see below |
-+External contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
-+for setup, commit style, and PR expectations. Security reports: [`SECURITY.md`](SECURITY.md).
++## Contributing
  
 -> [!IMPORTANT]
 -> The root `Cargo.toml` (workspace members, dependency versions, lints,
 -> profiles) is **generated** — treat it as read-only. Prefer editing per-crate
 -> `Cargo.toml` files.
-+## Made with Grok 4.5
++External contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
++for setup, commit style, and PR expectations. Security reports: [`SECURITY.md`](SECURITY.md).
  
 -## Development
-+<div align="center">
++## Made with Grok 4.5
  
 -```sh
 -cargo check -p <crate>        # always target specific crates; full-workspace builds are slow
@@ -532,15 +532,18 @@ index 4569db83fe4fee02ba656f8eaa52db22e43e8e63..e40bc3b14aaad47d14c9566310ee23b1
 -cargo clippy -p <crate>       # lint config: clippy.toml at the repo root
 -cargo fmt --all               # rustfmt.toml at the repo root
 -```
++<div align="center">
+ 
+-Notable addition in this tree: **[`/prompts`](crates/codegen/xai-grok-pager/docs/user-guide/25-prompts.md)** — browse and edit system / subagent prompt templates; overrides and presets stay under `~/.grok` (not project git). See also [CHANGELOG Unreleased](crates/codegen/xai-grok-shell/CHANGELOG.md).
 +![Grok Privacy session — Made with Grok 4.5](docs/assets/made-with-grok-4.5.png)
  
 -## Contributing
 +</div>
-+
-+## Relationship to upstream
  
 -> [!NOTE]
 -> External contributions are not accepted. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
++## Relationship to upstream
++
 +This repository is a fork of [`xai-org/grok-build`](https://github.com/xai-org/grok-build).
 +We intend to pull upstream fixes periodically while keeping the privacy
 +hard-offs.
@@ -17329,6 +17332,7 @@ prerequisite-patch-id: 61f6c73f2b96cd3f297b9ff6502d6ab63aff3d4f
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: b302baa9b1f767c9d35467989b8aa2eb2cbbf679
 prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
+prerequisite-patch-id: bd47173a5550c6d1dccec87e03cf5913f995336b
 prerequisite-patch-id: 2420a49dffcf51ca6802de7982cfa7f4d8ffd3e3
 prerequisite-patch-id: 02578ae21a3919f1ee15108ca1c667746617cb22
 -- 
