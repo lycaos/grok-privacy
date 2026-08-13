@@ -37,6 +37,7 @@ pub(crate) enum PendingEditorRequest {
     ConfigFile {
         path: PathBuf,
         refresh_agents_modal: Option<crate::views::agents_modal::AgentsTab>,
+        refresh_prompts_modal: bool,
     },
     /// Edit an attachment-free composer draft.
     PromptDraft {
@@ -54,6 +55,7 @@ pub(crate) enum PreparedEditorRequest {
     ConfigFile {
         launch: EditorLaunch,
         refresh_agents_modal: Option<crate::views::agents_modal::AgentsTab>,
+        refresh_prompts_modal: bool,
     },
     PromptDraft {
         launch: EditorLaunch,
@@ -196,9 +198,11 @@ pub(crate) fn prepare(
         PendingEditorRequest::ConfigFile {
             path,
             refresh_agents_modal,
+            refresh_prompts_modal,
         } => Ok(Some(PreparedEditorRequest::ConfigFile {
             launch: EditorLaunch { argv, path },
             refresh_agents_modal,
+            refresh_prompts_modal,
         })),
         PendingEditorRequest::PromptDraft {
             agent_id,
@@ -269,6 +273,7 @@ pub(crate) fn finish(
     match prepared {
         PreparedEditorRequest::ConfigFile {
             refresh_agents_modal,
+            refresh_prompts_modal,
             ..
         } => {
             if let Err(error) = editor_result {
@@ -280,6 +285,14 @@ pub(crate) fn finish(
                 && let Some(ref mut modal) = agent.agents_modal
             {
                 modal.refresh_after_editor(tab);
+            }
+            if refresh_prompts_modal
+                && let ActiveView::Agent(id) = app.active_view
+                && let Some(agent) = app.agents.get_mut(&id)
+            {
+                agent.active_modal = Some(crate::views::modal::ActiveModal::PromptsBrowser {
+                    state: Box::new(crate::views::prompts_modal::PromptsModalState::new()),
+                });
             }
         }
         PreparedEditorRequest::PromptDraft {
@@ -469,6 +482,7 @@ mod tests {
             request: PendingEditorRequest::ConfigFile {
                 path: PathBuf::from("/tmp/agent-config.md"),
                 refresh_agents_modal: None,
+                refresh_prompts_modal: false,
             },
             message: message.to_owned(),
         };
