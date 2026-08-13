@@ -36,7 +36,8 @@ upstream (xai-org/grok-build)
 
 ## Noms d’assets (contrat dur)
 
-Doivent rester alignés entre CI et `scripts/privacy-client-update.sh` :
+Doivent rester alignés entre la CI, `scripts/privacy-client-update.sh` et
+`scripts/privacy-client-update.ps1` :
 
 | Plateforme | Nom d’asset |
 |------------|-------------|
@@ -93,10 +94,56 @@ grok update -y        # non interactif
 - **`--from-source`** = secours **dev** (clone + cargo). Hors contrat multi-OS.  
   Ne pas l’utiliser pour « se mettre à jour comme un client ». Préfère le tip privacy courant / lock, pas un `main` en retard.
 
+### Windows → `scripts/privacy-client-update.ps1`
+
+Le wrapper est un script bash : sous PowerShell il n’existe pas, donc `grok`
+résout directement vers `grok.exe` et `grok update` tombe sur la sous-commande
+**xAI**, verrouillée par `vendor-updater-hard-off`. Le message de refus est
+correct — il n’y a simplement pas de chemin de mise à jour derrière. D’où
+l’équivalent PowerShell, même contrat :
+
+```powershell
+.\privacy-client-update.ps1            # télécharge la dernière release GH
+.\privacy-client-update.ps1 --check    # versions installée / disponible
+.\privacy-client-update.ps1 -y         # non interactif
+.\privacy-client-update.ps1 --force    # retélécharge même si déjà à jour
+```
+
+Installation sur une machine cliente (elle ne clone pas le dépôt) :
+
+```powershell
+$dst = "$env:USERPROFILE\.grok\bin\privacy-client-update.ps1"
+Invoke-WebRequest -UseBasicParsing `
+  -Uri "https://raw.githubusercontent.com/lycaos/grok-privacy/main/scripts/privacy-client-update.ps1" `
+  -OutFile $dst
+powershell -ExecutionPolicy Bypass -File $dst --check
+```
+
+Pour retrouver le geste `grok update`, ajouter au profil PowerShell
+(`$PROFILE`) l’équivalent du wrapper bash :
+
+```powershell
+function grok {
+    if ($args.Count -gt 0 -and $args[0] -eq 'update') {
+        & powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.grok\bin\privacy-client-update.ps1" @($args | Select-Object -Skip 1)
+    } else {
+        & "$env:USERPROFILE\.grok\bin\grok.exe" @args
+    }
+}
+```
+
+Deux écarts assumés avec la version bash, documentés dans l’en-tête du script :
+`--from-source` n’est pas supporté (il compile depuis un clone : c’est le rôle
+de la machine atelier), et la version installée est comparée au tag avant de
+télécharger — l’asset Windows pèse ~263 Mo, le reprendre à chaque exécution
+non interactive serait un coût inutile. `--force` passe outre.
+
 ### Confusion xAI
 
 Avec le **wrapper** privacy, `grok update` n’est **pas** l’updater officiel.  
-`~/.grok/bin/grok update` (binaire nu) = sous-commande xAI → **ne pas utiliser** pour ce fork.
+`~/.grok/bin/grok update` (binaire nu) = sous-commande xAI → **ne pas utiliser** pour ce fork.  
+Sous PowerShell il n’y a pas de wrapper : c’est exactement ce qu’on atteint sans
+la fonction de profil ci-dessus.
 
 ## Politique git (atelier)
 
@@ -114,10 +161,10 @@ Les machines clientes ne clonent pas ces branches : elles font `grok update`.
 |-------|--------|
 | Apply + finalize (`privacy-simple`) | **Fait** |
 | Install local post-rebuild | **Fait** |
-| Client `update` (download GH) | **Code prêt** |
+| Client `update` (download GH) | **Fait** — bash + PowerShell |
 | Workflow `release.yml` Linux | **Vert** (smoke OK) |
-| Workflow `release.yml` Windows | **Bloqué** — MSVC **LNK4319** (limite PDB / public symbols) sur runners VS 18 ; job en `continue-on-error` |
-| Releases GH avec assets | Linux publiable ; Windows dès fix link |
+| Workflow `release.yml` Windows | **Bloqué** — MSVC **LNK4319** (limite PDB / public symbols) sur runners VS 18 ; job en `continue-on-error`. Contourné : l'asset Windows est produit en **cross depuis Linux** (`x86_64-pc-windows-gnu`) par `grok rebuild` → « Publier une release ». |
+| Releases GH avec assets | **Fait** — Linux + Windows depuis `v1.0.3` (2026-08-13) |
 | Rebuild → push/tag/publish automatique | **TODO** (après tag manuel stable) |
 | Tip 0.2.112+ sur `main` / origin | **À clôturer** (branches sync locales possibles) |
 
@@ -126,8 +173,9 @@ Les machines clientes ne clonent pas ces branches : elles font `grok update`.
 du runner et retombe en `/DEBUG:FULL`. Pistes : `rust-lld`, cross depuis Linux
 (`cargo-xwin`), ou réduire massivement les symboles.
 
-Tant qu’il n’y a **aucune** Release avec assets : `grok update` échoue honnêtement.  
-Le contournement dev reste rebuild local ou `--from-source` — ce n’est **pas** le chemin produit.
+Les deux assets existent depuis `v1.0.3` : `grok update` a désormais un chemin réel sur
+les deux plateformes. Le contournement dev (`--from-source`) reste réservé à une machine
+qui a le clone et cargo — ce n’est **pas** le chemin produit.
 
 ## CI release (amorce)
 

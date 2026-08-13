@@ -14,6 +14,8 @@ paths = [
   "scripts/privacy-simple.sh",
   "scripts/privacy-rebuild.sh",
   "scripts/privacy-client-update.sh",
+  # Même contrat, pour les machines sans bash ni wrapper (PowerShell).
+  "scripts/privacy-client-update.ps1",
   "scripts/privacy-update.sh",
   "scripts/grok-wrapper.sh",
   "scripts/README-rebuild.md",
