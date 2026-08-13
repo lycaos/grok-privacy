@@ -1610,36 +1610,36 @@ impl AgentDefinition {
     }
     /// General-purpose subagent definition.
     pub fn general_purpose() -> Self {
-        use crate::prompt::subagent_prompts;
+        use crate::prompt::catalog::{self, PromptId};
         Self {
             description: xai_tool_types::GENERAL_PURPOSE_SUBAGENT
                 .description
                 .to_string(),
             tool_config: general_purpose_toolset(),
-            prompt_body: Some(subagent_prompts::GENERAL_PURPOSE_PROMPT.to_string()),
+            prompt_body: Some(catalog::resolve_body(PromptId::SubagentGeneralPurpose)),
             ..Self::base(BuiltinAgentName::GeneralPurpose, "")
         }
     }
     /// Explore subagent — fast, read-only codebase exploration.
     pub fn explore() -> Self {
-        use crate::prompt::subagent_prompts;
+        use crate::prompt::catalog::{self, PromptId};
         Self {
             description: xai_tool_types::EXPLORE_SUBAGENT.description.to_string(),
             tool_config: explore_toolset(),
             permission_mode: PermissionMode::Plan,
-            prompt_body: Some(subagent_prompts::EXPLORE_PROMPT.to_string()),
+            prompt_body: Some(catalog::resolve_body(PromptId::SubagentExplore)),
             inherit_skills: false,
             ..Self::base(BuiltinAgentName::Explore, "")
         }
     }
     /// Plan subagent — read-only architect for implementation plans.
     pub fn plan() -> Self {
-        use crate::prompt::subagent_prompts;
+        use crate::prompt::catalog::{self, PromptId};
         Self {
             description: xai_tool_types::PLAN_SUBAGENT.description.to_string(),
             tool_config: plan_toolset(),
             permission_mode: PermissionMode::Plan,
-            prompt_body: Some(subagent_prompts::PLAN_PROMPT.to_string()),
+            prompt_body: Some(catalog::resolve_body(PromptId::SubagentPlan)),
             inherit_skills: false,
             ..Self::base(BuiltinAgentName::Plan, "")
         }

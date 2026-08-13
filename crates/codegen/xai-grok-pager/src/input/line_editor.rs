@@ -34,7 +34,7 @@ impl LineEditor {
         self.buffer = EditBuffer::new();
     }
 
-    #[cfg(test)]
+    /// Place the caret at a byte offset (e.g. mouse click-to-place).
     pub(crate) fn set_cursor_byte(&mut self, cursor_byte: usize) -> LineEditOutcome {
         Self::from_edit_outcome(self.buffer.set_cursor_byte(cursor_byte))
     }
