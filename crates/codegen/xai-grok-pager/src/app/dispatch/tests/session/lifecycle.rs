@@ -1231,10 +1231,12 @@ fn accepting_records_the_answer_and_replays_deferred_startup() {
                 && *version == 3
                 && !acked
     )));
+    // Grok Privacy: the acceptance stays local — nothing is reported to xAI.
     assert!(
-        effects
+        !effects
             .iter()
             .any(|e| matches!(e, Effect::RecordConsentUpstream { .. })),
+        "accepting a consent notice must not emit an upstream record in a privacy build",
     );
     assert!(
         effects
