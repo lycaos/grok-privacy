@@ -2042,6 +2042,17 @@ pub(crate) fn execute(
                 });
         }
         Effect::RecordConsentUpstream { notice_id, version } => {
+            // Grok Privacy chokepoint: consent acknowledgments never leave this
+            // machine, even if a future caller emits the effect without going
+            // through `dispatch_accept_consent`.
+            if xai_grok_version::PRIVACY_BUILD {
+                tracing::info!(
+                    notice = %notice_id,
+                    version,
+                    "privacy: consent acknowledgment stays local; not reported upstream"
+                );
+                return (false, meta);
+            }
             let tx = acp_tx.clone();
             tasks
                 .spawn(async move {

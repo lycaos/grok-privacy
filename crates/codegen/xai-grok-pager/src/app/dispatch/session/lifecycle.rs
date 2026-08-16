@@ -669,7 +669,12 @@ pub(in crate::app::dispatch) fn dispatch_accept_consent(app: &mut AppView) -> Ve
             acked: false,
         });
     }
-    effects.push(Effect::RecordConsentUpstream { notice_id, version });
+    // Grok Privacy: the acceptance is recorded in the local config only —
+    // nothing about it is reported to xAI. The send site keeps a second gate
+    // (see `Effect::RecordConsentUpstream` in `app/effects/mod.rs`).
+    if !xai_grok_version::PRIVACY_BUILD {
+        effects.push(Effect::RecordConsentUpstream { notice_id, version });
+    }
     effects.extend(finish_consent(app));
     effects
 }
