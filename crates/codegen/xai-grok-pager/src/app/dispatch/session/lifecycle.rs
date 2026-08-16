@@ -658,15 +658,18 @@ pub(in crate::app::dispatch) fn dispatch_accept_consent(app: &mut AppView) -> Ve
     let notice_id = notice.id.clone();
     let version = notice.version;
     app.consent_answered = Some((notice_id.clone(), version));
-    let mut effects = vec![
-        Effect::PersistConsentAnswer {
-            account: app.account_email.clone(),
-            notice_id: notice_id.clone(),
-            version,
-            acked: false,
-        },
-        Effect::RecordConsentUpstream { notice_id, version },
-    ];
+    let mut effects = vec![Effect::PersistConsentAnswer {
+        account: app.account_email.clone(),
+        notice_id: notice_id.clone(),
+        version,
+        acked: false,
+    }];
+    // Grok Privacy: the acceptance is recorded in the local config only —
+    // nothing about it is reported to xAI. The send site keeps a second gate
+    // (see `Effect::RecordConsentUpstream` in `app/effects/mod.rs`).
+    if !xai_grok_version::PRIVACY_BUILD {
+        effects.push(Effect::RecordConsentUpstream { notice_id, version });
+    }
     effects.extend(finish_consent(app));
     effects
 }
