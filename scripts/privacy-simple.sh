@@ -32,7 +32,7 @@
 #
 set -euo pipefail
 
-VERSION_SCRIPT="2.6.0"
+VERSION_SCRIPT="2.6.1"
 
 export PATH="${HOME}/.cargo/bin:${PATH}"
 
@@ -310,14 +310,24 @@ downstream_state() {
     warn "aucune release publiée sur $GH_REPO"
   fi
   runs="$(gh run list -R "$GH_REPO" --limit 5 \
-            --json displayTitle,conclusion,status,createdAt \
-            --jq '.[] | [((.conclusion // "") | if . == "" then null else . end) // (.status // "?"), .createdAt, .displayTitle] | @tsv' \
+            --json displayTitle,workflowName,conclusion,status,createdAt \
+            --jq '.[] | [((.conclusion // "") | if . == "" then null else . end) // (.status // "?"), .createdAt, .workflowName, .displayTitle] | @tsv' \
             2>/dev/null || true)"
   if [[ -n "$runs" ]]; then
-    info "Derniers runs CI :"
-    local concl created title
-    while IFS=$'\t' read -r concl created title; do
-      printf '    %-12s %s  %s\n' "$concl" "$(local_time "$created")" "$title"
+    # Cinq « failure » d'avant la désactivation des workflows ressemblent à un
+    # échec du jour. On dit d'abord si Actions tourne encore, et on nomme le
+    # workflow : deux runs du même commit portent le même titre.
+    local active_wf
+    active_wf="$(gh workflow list -R "$GH_REPO" --all --json state \
+                   --jq '[.[] | select(.state == "active")] | length' 2>/dev/null || true)"
+    if [[ "$active_wf" == "0" ]]; then
+      warn "Actions désactivé (aucun workflow actif) — derniers runs figés d'avant la coupure :"
+    else
+      info "Derniers runs CI :"
+    fi
+    local concl created wf title
+    while IFS=$'\t' read -r concl created wf title; do
+      printf '    %-12s %s  %-16s %s\n' "$concl" "$(local_time "$created")" "$wf" "$title"
     done <<< "$runs"
   else
     info "aucun run CI lisible (droits ou réseau) — voir l'onglet Actions"
