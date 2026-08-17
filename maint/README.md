@@ -44,7 +44,9 @@ python maint/scripts/patchctl.py report --new <sha> --json
   Resume state lives in `<git-dir>/grok-apply-state.json` — never in the product tree.
 - **`--auto-resolve-conflicts`** (default in `grok rebuild`): a critical conflict is
   first replayed from recorded resolutions (git rerere), then sent to the resolver
-  command (`PATCHCTL_CONFLICT_RESOLVER_CMD`, default `claude -p`); patches without
+  command (`PATCHCTL_CONFLICT_RESOLVER_CMD`, default `claude -p`) one conflict
+  region at a time — the file is reassembled around the replacements, so content
+  outside the regions cannot be rewritten; patches without
   declared contracts never reach the resolver. The apply then **must** pass the
   auto-resolved patches' contracts or it fails closed (exit 3, branch left for
   inspection). Auto-resolutions are marked `AUTO-RESOLVED` in the output and listed

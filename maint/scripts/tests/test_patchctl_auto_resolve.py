@@ -2,9 +2,11 @@
 
 Each test builds a throwaway git repo: a locked upstream base, a one-patch
 privacy queue whose patch conflicts with the new upstream commit, and a stub
-conflict resolver injected via PATCHCTL_CONFLICT_RESOLVER_CMD. The fixture
-contract greps for the patch's guard, so a resolution that drops the privacy
-guarantee must fail the contract gate, not just the merge.
+conflict resolver injected via PATCHCTL_CONFLICT_RESOLVER_CMD. The resolver
+protocol is region-based: the stub receives one prompt per conflict region and
+must print only that region's replacement. The fixture contract greps for the
+patch's guard, so a resolution that drops the privacy guarantee must fail the
+contract gate, not just the merge.
 
 Run directly: python3 maint/scripts/tests/test_patchctl_auto_resolve.py
 """
@@ -74,31 +76,103 @@ fn other() {
 }
 """
 
-# Correct conflict resolution, but `fn other` vanished: a truncated resolver
-# output must be rejected even though the privacy contract would still pass.
-TRUNCATED_APP = """fn accept() {
-    if has_account() {
+# Replacement for the single conflict region of the fixture above.
+GOOD_REGION = """    if has_account() {
         record_local();
     }
     if !privacy() {
         record_upstream();
     }
-}
 """
 
 # Committable (differs from upstream) but drops the privacy guard: only the
 # contract gate can catch this one.
-DROPS_GUARD_APP = """fn accept() {
-    if has_account() {
+DROPS_GUARD_REGION = """    if has_account() {
         record_local();
     }
     // resolved
     record_upstream();
+"""
+
+# Two-region variant: `fn mid` separates two independent conflicts.
+BASE_TWO = """fn alpha() {
+    one();
 }
 
-fn other() {
-    keep_me();
+fn mid() {
+    stable_one();
+    stable_two();
 }
+
+fn beta() {
+    two();
+}
+"""
+
+PATCHED_TWO = """fn alpha() {
+    if !privacy() {
+        one();
+    }
+}
+
+fn mid() {
+    stable_one();
+    stable_two();
+}
+
+fn beta() {
+    if !privacy() {
+        two();
+    }
+}
+"""
+
+UPSTREAM_TWO = """fn alpha() {
+    prepare();
+    one_v2();
+}
+
+fn mid() {
+    stable_one();
+    stable_two();
+}
+
+fn beta() {
+    prepare();
+    two_v2();
+}
+"""
+
+MERGED_TWO = """fn alpha() {
+    prepare();
+    if !privacy() {
+        one_v2();
+    }
+}
+
+fn mid() {
+    stable_one();
+    stable_two();
+}
+
+fn beta() {
+    prepare();
+    if !privacy() {
+        two_v2();
+    }
+}
+"""
+
+REGION_ONE = """    prepare();
+    if !privacy() {
+        one_v2();
+    }
+"""
+
+REGION_TWO = """    prepare();
+    if !privacy() {
+        two_v2();
+    }
 """
 
 VERSION_CARGO = '[package]\nname = "xai-grok-version"\nversion = "0.1.0"\n'
@@ -116,6 +190,10 @@ command = [
 """
 
 
+def sh_quote(text: str) -> str:
+    return text.replace("'", "'\\''")
+
+
 def patchset_toml(contracts: tuple[str, ...]) -> str:
     ids = ", ".join(f'"{c}"' for c in contracts)
     return (
@@ -129,7 +207,15 @@ def patchset_toml(contracts: tuple[str, ...]) -> str:
 
 
 class Fixture:
-    def __init__(self, tmp: Path, *, contracts: tuple[str, ...] = ("guard-present",)):
+    def __init__(
+        self,
+        tmp: Path,
+        *,
+        contracts: tuple[str, ...] = ("guard-present",),
+        base: str = BASE_APP,
+        patched: str = PATCHED_APP,
+        upstream: str = UPSTREAM_APP,
+    ):
         self.tmp = tmp
         self.root = tmp / "repo"
         self.root.mkdir()
@@ -140,7 +226,7 @@ class Fixture:
             GIT_COMMITTER_NAME="Test",
             GIT_COMMITTER_EMAIL="test@example.invalid",
         )
-        self._build(contracts)
+        self._build(contracts, base, patched, upstream)
 
     def sh(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         proc = subprocess.run(
@@ -155,7 +241,9 @@ class Fixture:
     def git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         return self.sh("git", *args, check=check)
 
-    def _build(self, contracts: tuple[str, ...]) -> None:
+    def _build(
+        self, contracts: tuple[str, ...], base: str, patched: str, upstream: str
+    ) -> None:
         self.git("init", "-b", "main")
         # Upstream base.
         cargo = self.root / "crates/codegen/xai-grok-version/Cargo.toml"
@@ -163,13 +251,13 @@ class Fixture:
         cargo.write_text(VERSION_CARGO, encoding="utf-8")
         app = self.root / "src/app.rs"
         app.parent.mkdir(parents=True)
-        app.write_text(BASE_APP, encoding="utf-8")
+        app.write_text(base, encoding="utf-8")
         self.git("add", "-A")
         self.git("commit", "-m", "base")
         self.base_sha = self.git("rev-parse", "HEAD").stdout.strip()
 
         # The privacy patch, exported then reset away.
-        app.write_text(PATCHED_APP, encoding="utf-8")
+        app.write_text(patched, encoding="utf-8")
         self.git("add", "-A")
         self.git(
             "commit",
@@ -184,7 +272,7 @@ class Fixture:
 
         # The new upstream commit rewrites the same lines: guaranteed conflict.
         self.git("switch", "-c", "upstream-main")
-        app.write_text(UPSTREAM_APP, encoding="utf-8")
+        app.write_text(upstream, encoding="utf-8")
         self.git("add", "-A")
         self.git("commit", "-m", "upstream rework")
         self.up_sha = self.git("rev-parse", "HEAD").stdout.strip()
@@ -237,9 +325,21 @@ class Fixture:
         return str(path)
 
     def resolver_printing(self, name: str, content: str) -> str:
-        quoted = content.replace("'", "'\\''")
         return self.resolver(
-            name, f"#!/bin/sh\ncat > /dev/null\nprintf '%s' '{quoted}'\n"
+            name,
+            f"#!/bin/sh\ncat > /dev/null\nprintf '%s' '{sh_quote(content)}'\n",
+        )
+
+    def resolver_two_regions(self, name: str, first: str, second: str) -> str:
+        return self.resolver(
+            name,
+            "#!/bin/sh\n"
+            "input=$(cat)\n"
+            'case "$input" in\n'
+            f"  *'region 1 of 2'*) printf '%s' '{sh_quote(first)}' ;;\n"
+            f"  *'region 2 of 2'*) printf '%s' '{sh_quote(second)}' ;;\n"
+            "  *) exit 9 ;;\n"
+            "esac\n",
         )
 
     def apply(
@@ -282,7 +382,7 @@ class AutoResolveTest(unittest.TestCase):
 
     def test_resolves_conflict_and_passes_contracts(self) -> None:
         fx = Fixture(self.tmp)
-        good = fx.resolver_printing("resolver-good.sh", MERGED_APP)
+        good = fx.resolver_printing("resolver-good.sh", GOOD_REGION)
         proc = fx.apply(good)
         self.assertEqual(
             proc.returncode, 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
@@ -298,11 +398,23 @@ class AutoResolveTest(unittest.TestCase):
         )
         self.assertEqual(status["auto_resolved"][0]["method"], "ai")
 
+    def test_resolves_two_regions_in_one_file(self) -> None:
+        fx = Fixture(
+            self.tmp, base=BASE_TWO, patched=PATCHED_TWO, upstream=UPSTREAM_TWO
+        )
+        stub = fx.resolver_two_regions("resolver-two.sh", REGION_ONE, REGION_TWO)
+        proc = fx.apply(stub)
+        self.assertEqual(
+            proc.returncode, 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+        )
+        self.assertEqual(fx.app_content(), MERGED_TWO)
+        self.assertEqual(fx.status_json()["auto_resolved"][0]["method"], "ai")
+
     def test_rejects_output_with_conflict_markers(self) -> None:
         fx = Fixture(self.tmp)
         bad = fx.resolver_printing(
             "resolver-markers.sh",
-            "<<<<<<< ours\n" + UPSTREAM_APP + ">>>>>>> theirs\n",
+            "<<<<<<< ours\n" + GOOD_REGION + ">>>>>>> theirs\n",
         )
         proc = fx.apply(bad)
         self.assertEqual(proc.returncode, 3, proc.stderr)
@@ -312,6 +424,17 @@ class AutoResolveTest(unittest.TestCase):
         self.assertIn(
             "rejected resolver proposal", report.read_text(encoding="utf-8")
         )
+
+    def test_rejects_full_file_output(self) -> None:
+        # Even a CORRECT whole file must be rejected: the protocol demands the
+        # region replacement only, and echoing content from outside the region
+        # is how truncations and rewrites slip in.
+        fx = Fixture(self.tmp)
+        dumper = fx.resolver_printing("resolver-dumps-file.sh", MERGED_APP)
+        proc = fx.apply(dumper)
+        self.assertEqual(proc.returncode, 3, proc.stdout + proc.stderr)
+        self.assertIn("outside the region", proc.stderr)
+        self.assertFalse(fx.am_in_progress())
 
     def test_resolver_failure_falls_back_to_fail_closed(self) -> None:
         fx = Fixture(self.tmp)
@@ -325,7 +448,9 @@ class AutoResolveTest(unittest.TestCase):
         # Resolver silently drops the privacy guard: the merge succeeds but the
         # contract gate must catch it.
         fx = Fixture(self.tmp)
-        dropper = fx.resolver_printing("resolver-drops-guard.sh", DROPS_GUARD_APP)
+        dropper = fx.resolver_printing(
+            "resolver-drops-guard.sh", DROPS_GUARD_REGION
+        )
         proc = fx.apply(dropper)
         self.assertEqual(proc.returncode, 3, proc.stdout + proc.stderr)
         self.assertIn("contract", (proc.stdout + proc.stderr).lower())
@@ -333,26 +458,15 @@ class AutoResolveTest(unittest.TestCase):
 
     def test_no_contracts_disables_ai_resolution(self) -> None:
         fx = Fixture(self.tmp, contracts=())
-        good = fx.resolver_printing("resolver-good.sh", MERGED_APP)
+        good = fx.resolver_printing("resolver-good.sh", GOOD_REGION)
         proc = fx.apply(good)
         self.assertEqual(proc.returncode, 3, proc.stdout + proc.stderr)
         self.assertIn("no contracts", proc.stdout + proc.stderr)
         self.assertFalse(fx.am_in_progress())
 
-    def test_rejects_edits_outside_conflict_regions(self) -> None:
-        # The resolved conflict is correct, but the resolver also dropped
-        # `fn other` — content it had no conflict to resolve. The privacy
-        # contract alone cannot see that; the common-segment check must.
-        fx = Fixture(self.tmp)
-        truncating = fx.resolver_printing("resolver-truncates.sh", TRUNCATED_APP)
-        proc = fx.apply(truncating)
-        self.assertEqual(proc.returncode, 3, proc.stdout + proc.stderr)
-        self.assertIn("outside the conflict regions", proc.stderr)
-        self.assertFalse(fx.am_in_progress())
-
     def test_rerere_replays_recorded_resolution(self) -> None:
         fx = Fixture(self.tmp)
-        good = fx.resolver_printing("resolver-good.sh", MERGED_APP)
+        good = fx.resolver_printing("resolver-good.sh", GOOD_REGION)
         first = fx.apply(good)
         self.assertEqual(first.returncode, 0, first.stderr)
         # Second run from scratch: the resolver is broken on purpose — only the

@@ -450,12 +450,23 @@ do_apply() {
 
     if [[ "$has_local" == "1" ]]; then
       local n_trailers ahead=0
-      n_trailers="$(git log --format=%B "${sha}..${branch_name}" 2>/dev/null | grep -c 'Gork-Patch-Id:' || true)"
+      # control-metadata (finalize, statut) n'est pas un patch : exclu du compte.
+      n_trailers="$(git log --format=%B "${sha}..${branch_name}" 2>/dev/null | grep 'Gork-Patch-Id:' | grep -vc 'control-metadata' || true)"
       if [[ "$has_remote" == "1" ]]; then
         ahead="$(git rev-list --count "${ORIGIN_REMOTE}/${branch_name}..${branch_name}" 2>/dev/null || echo 0)"
       fi
-      if [[ "${n_trailers:-0}" -ge 6 ]]; then
-        info "Branche locale complète ($n_trailers patch-ids) → checkout"
+      # Complète = tous les patchs critiques de la série y sont. Un seuil fixe
+      # (ex-6) prenait pour complète une branche d'apply avorté à 7 patchs sur
+      # 16 — et aurait construit un binaire sans les hard-offs suivants.
+      local n_critical
+      n_critical="$("$PYTHON" -c '
+import tomllib
+with open("maint/patchset.toml", "rb") as f:
+    data = tomllib.load(f)
+print(sum(1 for p in data.get("patch") or [] if p.get("critical", True)))
+' 2>/dev/null || echo 9999)"
+      if [[ "${n_trailers:-0}" -ge "${n_critical:-9999}" ]]; then
+        info "Branche locale complète ($n_trailers patch-ids ≥ $n_critical critiques) → checkout"
         if [[ "${ahead:-0}" -gt 0 ]]; then
           info "  $ahead commit(s) d'avance sur $ORIGIN_REMOTE : conservés"
         fi
@@ -464,7 +475,7 @@ do_apply() {
         return 0
       fi
       # Orpheline / apply partiel (ex. 3 patches puis abort) : rejouer avec --force
-      info "Branche locale incomplète ($n_trailers patch-ids) → re-apply --force"
+      info "Branche locale incomplète ($n_trailers/$n_critical patch-ids critiques) → re-apply --force"
       force_flag=(--force)
     elif [[ "$has_remote" == "1" ]]; then
       info "Branche absente en local, présente sur $ORIGIN_REMOTE → checkout de suivi"

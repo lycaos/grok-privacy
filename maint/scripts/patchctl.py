@@ -518,25 +518,52 @@ def resolver_cmd() -> list[str]:
     return shlex.split(raw or DEFAULT_RESOLVER_CMD)
 
 
-def conflict_common_segments(conflicted: str) -> list[str]:
-    """Text of a conflicted file outside its conflict regions, in order."""
-    segments: list[str] = []
+def split_conflict_file(conflicted: str) -> tuple[list[str], list[str]]:
+    """Split a conflicted file into (commons, regions).
+
+    Regions keep their conflict markers; commons is one element longer than
+    regions, so the file is commons[0] + regions[0] + commons[1] + …
+    """
+    commons: list[str] = []
+    regions: list[str] = []
     cur: list[str] = []
     depth = 0
     for line in conflicted.splitlines(keepends=True):
-        if line.startswith("<<<<<<< "):
-            depth += 1
-            if depth == 1:
-                segments.append("".join(cur))
-                cur = []
-            continue
-        if depth:
-            if line.startswith(">>>>>>> "):
-                depth -= 1
+        if depth == 0:
+            if line.startswith("<<<<<<< "):
+                commons.append("".join(cur))
+                cur = [line]
+                depth = 1
+            else:
+                cur.append(line)
             continue
         cur.append(line)
-    segments.append("".join(cur))
-    return segments
+        if line.startswith("<<<<<<< "):
+            depth += 1
+        elif line.startswith(">>>>>>> "):
+            depth -= 1
+            if depth == 0:
+                regions.append("".join(cur))
+                cur = []
+    commons.append("".join(cur))
+    return commons, regions
+
+
+def conflict_common_segments(conflicted: str) -> list[str]:
+    """Text of a conflicted file outside its conflict regions, in order."""
+    return split_conflict_file(conflicted)[0]
+
+
+def replacement_echoes_common(commons: list[str], replacement: str) -> bool:
+    """True when a region replacement repeats distinctive lines from outside
+    the region — the signature of a resolver dumping the whole file."""
+    common_lines = {
+        ln.strip()
+        for seg in commons
+        for ln in seg.splitlines()
+        if len(ln.strip()) >= 12
+    }
+    return any(ln.strip() in common_lines for ln in replacement.splitlines())
 
 
 def resolution_preserves_common(conflicted: str, resolved: str) -> bool:
@@ -561,7 +588,13 @@ def strip_code_fence(text: str) -> str:
 
 
 def build_resolver_prompt(
-    patch_name: str, rel: str, mail: str, conflicted: str
+    patch_name: str,
+    rel: str,
+    mail: str,
+    conflicted: str,
+    region: str,
+    idx: int,
+    total: int,
 ) -> str:
     return (
         "You are resolving a `git am --3way` merge conflict while a privacy "
@@ -571,16 +604,21 @@ def build_resolver_prompt(
         "--- PATCH START ---\n"
         f"{mail}"
         "--- PATCH END ---\n\n"
-        f"Conflicted file `{rel}` (the <<<<<<< side is the new upstream code, "
-        "the >>>>>>> side is the patch):\n"
+        f"Full conflicted file `{rel}`, for context only:\n"
         "--- FILE START ---\n"
         f"{conflicted}"
         "--- FILE END ---\n\n"
-        "Resolve by keeping the new upstream structure and re-applying the "
-        "patch's exact intent — its privacy guarantee must hold.\n"
-        f"Output ONLY the complete resolved contents of `{rel}`: no markdown "
-        "fences, no commentary, no conflict markers. Start with the first "
-        "line of the file.\n"
+        f"Conflict region {idx} of {total} (the <<<<<<< side is the new "
+        "upstream code, the >>>>>>> side is the patch):\n"
+        "--- REGION START ---\n"
+        f"{region}"
+        "--- REGION END ---\n\n"
+        "Resolve this region by keeping the new upstream structure and "
+        "re-applying the patch's exact intent — its privacy guarantee must "
+        "hold.\n"
+        "Output ONLY the text that replaces this region in the final file: "
+        "no conflict markers, no markdown fences, no commentary, and none of "
+        "the file content that surrounds the region.\n"
     )
 
 
@@ -618,44 +656,65 @@ def attempt_auto_resolve(
         for rel in pending:
             target = root / rel
             conflicted = target.read_text(encoding="utf-8", errors="replace")
-            prompt = build_resolver_prompt(patch_name, rel, mail, conflicted)
-            try:
-                proc = subprocess.run(
-                    cmd,
-                    input=prompt,
-                    cwd=root,
-                    text=True,
-                    capture_output=True,
-                    timeout=RESOLVER_TIMEOUT_SECONDS,
+            commons, regions = split_conflict_file(conflicted)
+            if not regions:
+                return None, f"{rel} is unmerged but carries no conflict markers"
+            replacements: list[str] = []
+            for idx, region in enumerate(regions, 1):
+                prompt = build_resolver_prompt(
+                    patch_name, rel, mail, conflicted, region, idx, len(regions)
                 )
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                return None, f"resolver command failed for {rel}: {exc}"
-            if proc.returncode != 0:
-                tail = (proc.stderr or proc.stdout or "").strip()[-400:]
-                return None, f"resolver exited {proc.returncode} for {rel}: {tail}"
-            content = strip_code_fence(proc.stdout)
-            if not content.strip():
-                return None, f"resolver returned empty output for {rel}"
-            if not content.endswith("\n"):
-                content += "\n"
-            if text_has_conflict_markers(content):
-                with report.open("a", encoding="utf-8") as f:
-                    f.write(
-                        f"\n## rejected resolver proposal for {rel}\n{content}\n"
+                try:
+                    proc = subprocess.run(
+                        cmd,
+                        input=prompt,
+                        cwd=root,
+                        text=True,
+                        capture_output=True,
+                        timeout=RESOLVER_TIMEOUT_SECONDS,
                     )
-                return None, (
-                    f"resolver output for {rel} still contains conflict markers"
-                )
-            if not resolution_preserves_common(conflicted, content):
-                with report.open("a", encoding="utf-8") as f:
-                    f.write(
-                        f"\n## rejected resolver proposal for {rel}\n{content}\n"
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    return None, f"resolver command failed for {rel}: {exc}"
+                if proc.returncode != 0:
+                    tail = (proc.stderr or proc.stdout or "").strip()[-400:]
+                    return None, (
+                        f"resolver exited {proc.returncode} for {rel}: {tail}"
                     )
-                return None, (
-                    f"resolver output for {rel} rewrites content outside the "
-                    "conflict regions"
-                )
-            target.write_text(content, encoding="utf-8")
+                content = strip_code_fence(proc.stdout)
+                where = f"{rel} (region {idx}/{len(regions)})"
+                if not content.strip():
+                    return None, f"resolver returned empty output for {where}"
+                if not content.endswith("\n"):
+                    content += "\n"
+                if text_has_conflict_markers(content):
+                    with report.open("a", encoding="utf-8") as f:
+                        f.write(
+                            f"\n## rejected resolver proposal for {where}\n"
+                            f"{content}\n"
+                        )
+                    return None, (
+                        f"resolver output for {where} still contains conflict "
+                        "markers"
+                    )
+                if replacement_echoes_common(commons, content):
+                    with report.open("a", encoding="utf-8") as f:
+                        f.write(
+                            f"\n## rejected resolver proposal for {where}\n"
+                            f"{content}\n"
+                        )
+                    return None, (
+                        f"resolver output for {where} repeats file content "
+                        "from outside the region (full-file dump?)"
+                    )
+                replacements.append(content)
+            resolved = (
+                "".join(c + r for c, r in zip(commons, replacements))
+                + commons[-1]
+            )
+            # Belt over the by-construction guarantee.
+            if not resolution_preserves_common(conflicted, resolved):
+                return None, f"reconstruction lost common segments for {rel}"
+            target.write_text(resolved, encoding="utf-8")
         git(["add", "--", *pending], cwd=root, check=False)
     if unmerged_paths(root):
         return None, "unresolved paths remain after resolution attempt"
