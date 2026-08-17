@@ -54,7 +54,7 @@ Gork-Risk: critical
  22 files changed, 363 insertions(+), 6 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager/src/app/actions.rs b/crates/codegen/xai-grok-pager/src/app/actions.rs
-index ac4b7057e3a24800969cbae01271bfa76fae469c..8a598ae23ec23c2387a429c7a5fe9bbcbbc56ac8 100644
+index 8987bd4b9ac72fa1b9c506df52f519c15fa6d1f4..4696368f63da3e99aae0c457405ad62becbe46d6 100644
 --- a/crates/codegen/xai-grok-pager/src/app/actions.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/actions.rs
 @@ -609,6 +609,10 @@ pub enum Action {
@@ -69,10 +69,10 @@ index ac4b7057e3a24800969cbae01271bfa76fae469c..8a598ae23ec23c2387a429c7a5fe9bbc
      /// cadence is pinned once at startup.
      SetDisplayRefreshAutoCadence(bool),
 diff --git a/crates/codegen/xai-grok-pager/src/app/app_view.rs b/crates/codegen/xai-grok-pager/src/app/app_view.rs
-index abbbf08a7239da006a7bf14a749230ec5398b276..f95c237e60f78d8ff23e70fafebc5630908f8763 100644
+index 0461c0a01818ff9cc58ea0d6f1c2deee9e7cee55..35ea1c157afd23af381e226340b3a636590224e9 100644
 --- a/crates/codegen/xai-grok-pager/src/app/app_view.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/app_view.rs
-@@ -1122,6 +1122,9 @@ pub struct AppView {
+@@ -1126,6 +1126,9 @@ pub struct AppView {
      pub show_tips: Option<bool>,
      /// Persisted `[cli].auto_update` mirror. `None` = no override (default `true`).
      pub auto_update: Option<bool>,
@@ -82,7 +82,7 @@ index abbbf08a7239da006a7bf14a749230ec5398b276..f95c237e60f78d8ff23e70fafebc5630
      /// Persisted `[toolset.ask_user_question].timeout_enabled` mirror, seeded
      /// from the effective TOML merge like `show_tips`. `None` = unset in TOML
      /// (default `true`); toggles write the user layer.
-@@ -1612,6 +1615,7 @@ impl AppView {
+@@ -1618,6 +1621,7 @@ impl AppView {
              coding_data_write_seq: 0,
              show_tips: None,
              auto_update: None,
@@ -91,10 +91,10 @@ index abbbf08a7239da006a7bf14a749230ec5398b276..f95c237e60f78d8ff23e70fafebc5630
              zdr_access_enabled: false,
              usage_billing_redirect_url: None,
 diff --git a/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs b/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
-index 8de13f2db0bf9dd4f0630bfc8b099ada608c4a38..64ca938694ec025c100952cbe7384170ffb3cd85 100644
+index 9bec917415b846b4e17112dd943fd02fc6ae1fb1..1a8f75459a6329e634ae0fb4329adda837ccaa02 100644
 --- a/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
-@@ -188,6 +188,7 @@ pub(crate) fn test_app() -> AppView {
+@@ -190,6 +190,7 @@ pub(crate) fn test_app() -> AppView {
          coding_data_write_seq: 0,
          show_tips: None,
          auto_update: None,
@@ -103,7 +103,7 @@ index 8de13f2db0bf9dd4f0630bfc8b099ada608c4a38..64ca938694ec025c100952cbe7384170
          zdr_access_enabled: false,
          usage_billing_redirect_url: None,
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
-index b33a7ae11e4b6237bd25d9fdd2ae15105796cbc9..bf9563963dfbaecd11048b6121b888b10c95357a 100644
+index ac1ff2617c58b76f97cee0d3d15095b3b53a03b2..17405b4ea8ddeddf6e41e7646b3f191d311e26e7 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
 @@ -1313,6 +1313,7 @@ pub(super) fn dispatch_dashboard_dispatch_slash(app: &mut AppView, text: String)
@@ -143,7 +143,7 @@ index 57acfd8c725e8ccae63cf9b6807d85397b5880f7..66ab51577c0d40b1e84ae5b9db924839
                      scroll_speed: crate::appearance::cache::load_scroll_speed(),
                      respect_manual_folds: respect_manual_folds_from_app,
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
-index 86df4292ad50f986a716298ef85c0a73bd9e12ab..1d958cc9bf3ba6190669570ba23f9144dd89be34 100644
+index 897952fb7c2d4fa1862639683c895924e00b5d43..dd0063703c5a902f6ea79b8e76308f7960e5e395 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
 @@ -84,8 +84,9 @@ use super::settings::setters::{
@@ -158,7 +158,7 @@ index 86df4292ad50f986a716298ef85c0a73bd9e12ab..1d958cc9bf3ba6190669570ba23f9144
      set_voice_keybind_enabled, set_voice_stt_language,
  };
  use super::settings::ui::{
-@@ -1092,6 +1093,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+@@ -1093,6 +1094,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
          Action::SetMaxThoughtsWidth(v) => set_max_thoughts_width(app, v),
          Action::SetShowTips(v) => set_show_tips(app, v),
          Action::SetAutoUpdate(v) => set_auto_update(app, v),
@@ -299,10 +299,10 @@ index f89930f05c0390affc27e6feb0249cc38b6dd411..cc4076c47fbf3aa5d4a2352aed36ea8d
          ("fork_secondary_model", SettingValue::String(s)) => {
              let restored = if s.is_empty() {
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
-index 63d41e80a915f5ce67ecbeca00669628e568ede8..ca6a25c18517994300c041664b493f5537dec530 100644
+index 2710f9f8ef2b6cdeb8e0c192158b58174cc2cb43..f057a70def326159a68a91026be33b95a04f5c31 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
-@@ -176,6 +176,7 @@ fn test_app() -> AppView {
+@@ -178,6 +178,7 @@ fn test_app() -> AppView {
          coding_data_write_seq: 0,
          show_tips: None,
          auto_update: None,
@@ -826,8 +826,8 @@ index 8ade06704bf2baeddb34f7d5c61dc48b13e05f38..75611de83d7dff63a1fe9b1ac8007b5d
 +    }
 +}
 
-base-commit: 5163763e703c319e4554c2f455535c5adb6e51e8
-prerequisite-patch-id: 60e67e7c5b0de66fb55d78ab65d7e8fc42c5a4f8
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f

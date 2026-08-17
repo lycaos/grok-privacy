@@ -23,34 +23,20 @@ Gork-Patch-Id: consent-record-hard-off
 Gork-Invariant: consent-ack-stays-local
 Gork-Risk: critical
 ---
- .../src/app/dispatch/session/lifecycle.rs     | 21 +++++++++++--------
- .../app/dispatch/tests/session/lifecycle.rs   |  4 +++-
- .../xai-grok-pager/src/app/effects/mod.rs     | 11 ++++++++++
- 3 files changed, 26 insertions(+), 10 deletions(-)
+ .../src/app/dispatch/session/lifecycle.rs             |  7 ++++++-
+ .../src/app/dispatch/tests/session/lifecycle.rs       |  4 +++-
+ crates/codegen/xai-grok-pager/src/app/effects/mod.rs  | 11 +++++++++++
+ 3 files changed, 20 insertions(+), 2 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs
-index 0ee7d115658e5a2f5151999e53d6db760571d666..b1561981fbdb8a64e6b0464e571cc8f55fd60c81 100644
+index 7d7b8d76f302ed6dc4af8a764b68b89ec6a9b2a7..8e7344673be5832668ec5530c431c7174f40abbe 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs
-@@ -658,15 +658,18 @@ pub(in crate::app::dispatch) fn dispatch_accept_consent(app: &mut AppView) -> Ve
-     let notice_id = notice.id.clone();
-     let version = notice.version;
-     app.consent_answered = Some((notice_id.clone(), version));
--    let mut effects = vec![
--        Effect::PersistConsentAnswer {
--            account: app.account_email.clone(),
--            notice_id: notice_id.clone(),
--            version,
--            acked: false,
--        },
--        Effect::RecordConsentUpstream { notice_id, version },
--    ];
-+    let mut effects = vec![Effect::PersistConsentAnswer {
-+        account: app.account_email.clone(),
-+        notice_id: notice_id.clone(),
-+        version,
-+        acked: false,
-+    }];
+@@ -667,7 +667,12 @@ pub(in crate::app::dispatch) fn dispatch_accept_consent(app: &mut AppView) -> Ve
+             acked: false,
+         });
+     }
+-    effects.push(Effect::RecordConsentUpstream { notice_id, version });
 +    // Grok Privacy: the acceptance is recorded in the local config only —
 +    // nothing about it is reported to xAI. The send site keeps a second gate
 +    // (see `Effect::RecordConsentUpstream` in `app/effects/mod.rs`).
@@ -61,10 +47,10 @@ index 0ee7d115658e5a2f5151999e53d6db760571d666..b1561981fbdb8a64e6b0464e571cc8f5
      effects
  }
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs
-index 80facf287bd9a5db868baf9b9e42fb1697d43d9d..209fedece430c57a4d326cfb5664c31276144649 100644
+index bc24a684700f1b38d521d6e7b2e804f07bc9949c..4571647402e6264fa661e81d195d99fe1fa33ba3 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs
-@@ -1234,10 +1234,12 @@ fn accepting_records_the_answer_and_replays_deferred_startup() {
+@@ -1235,10 +1235,12 @@ fn accepting_records_the_answer_and_replays_deferred_startup() {
                  && *version == 3
                  && !acked
      )));
@@ -79,10 +65,10 @@ index 80facf287bd9a5db868baf9b9e42fb1697d43d9d..209fedece430c57a4d326cfb5664c312
      assert!(
          effects
 diff --git a/crates/codegen/xai-grok-pager/src/app/effects/mod.rs b/crates/codegen/xai-grok-pager/src/app/effects/mod.rs
-index e23625b60a5c21278fe7bdaa5e638678f6af72b6..ebfc6c8095fe7ead1aa69b45f2207e767c4cd059 100644
+index 9095a1fd14ee0e803f4488dac5db25aa97fc2119..12d5a030ab2551db04237ae1c02ed469a4fcadeb 100644
 --- a/crates/codegen/xai-grok-pager/src/app/effects/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/effects/mod.rs
-@@ -1984,6 +1984,17 @@ pub(crate) fn execute(
+@@ -1994,6 +1994,17 @@ pub(crate) fn execute(
                  });
          }
          Effect::RecordConsentUpstream { notice_id, version } => {
@@ -101,8 +87,8 @@ index e23625b60a5c21278fe7bdaa5e638678f6af72b6..ebfc6c8095fe7ead1aa69b45f2207e76
              tasks
                  .spawn(async move {
 
-base-commit: 5163763e703c319e4554c2f455535c5adb6e51e8
-prerequisite-patch-id: 60e67e7c5b0de66fb55d78ab65d7e8fc42c5a4f8
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f

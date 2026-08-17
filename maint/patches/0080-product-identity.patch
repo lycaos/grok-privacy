@@ -13,11 +13,11 @@ Gork-Risk: medium
  3 files changed, 38 insertions(+), 19 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager-bin/Cargo.toml b/crates/codegen/xai-grok-pager-bin/Cargo.toml
-index 765426529a00b3aafcb09b7b3a7d7e5024aa160c..a5b703d28a24f398a0a8cb7dca2c88a19f03cbc3 100644
+index f5d0c58b9ce7b26cf7c312835c182fd08bcea17a..9f135a058f9635644be04ecfd0645b55c4781450 100644
 --- a/crates/codegen/xai-grok-pager-bin/Cargo.toml
 +++ b/crates/codegen/xai-grok-pager-bin/Cargo.toml
 @@ -3,14 +3,18 @@ name = "xai-grok-pager-bin"
- version = "1.0.4"
+ version = "1.0.5"
  edition.workspace = true
  license = "Apache-2.0"
 -authors = ["xAI"]
@@ -144,20 +144,20 @@ index 176f49dcdd81ea2c20aa599dcbd9cbf2e7362093..871fad2acadf35ec5a040b1a98e76778
      }
  }
 
-base-commit: 5163763e703c319e4554c2f455535c5adb6e51e8
-prerequisite-patch-id: 60e67e7c5b0de66fb55d78ab65d7e8fc42c5a4f8
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
 prerequisite-patch-id: 83fd3778a80e37c86ba4a682fe1122f05b36bf68
-prerequisite-patch-id: aa199264f192b3636876673b721b43a215c375ef
+prerequisite-patch-id: 0e555246a66056f4876f40e73e8f379c421e890e
 prerequisite-patch-id: f0ee51344dfd57c673953dac5b8e36c12515bf97
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: 5054621d4b6a314c4c2f894e4734d47412346e88
 prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
-prerequisite-patch-id: 1683fd14e1704c651adf0b6ae0436f252981e15d
+prerequisite-patch-id: b229c0ee11749c526f273c9f41b0347be923744d
 -- 
 2.43.0
 

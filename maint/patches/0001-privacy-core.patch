@@ -12,12 +12,12 @@ Gork-Risk: critical
  2 files changed, 60 insertions(+), 2 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-version/Cargo.toml b/crates/codegen/xai-grok-version/Cargo.toml
-index 26ab818a645b9251d0d6b45b4df2292e3f254322..1dceec1093469a169e2c5c0a0ea471bd0d054e07 100644
+index 67fd01ba2c9cf0fa2f896c190952caaea901f4fa..b59b99326f3dd0efd52ad64ceecd56aa35147e00 100644
 --- a/crates/codegen/xai-grok-version/Cargo.toml
 +++ b/crates/codegen/xai-grok-version/Cargo.toml
 @@ -3,7 +3,7 @@ license = "Apache-2.0"
  name = "xai-grok-version"
- version = "1.0.4"
+ version = "1.0.5"
  edition.workspace = true
 -description = "Lockstepped grok CLI version."
 +description = "Lockstepped Grok Privacy CLI version and privacy-build constants."
@@ -105,7 +105,7 @@ index b7d224fc92d5e25ba5dae888fb60335c3c0933ad..52a00f2764b05622947d963e1442bd50
      /// works correctly across all label states (alpha, stable, empty).
      #[test]
 
-base-commit: 5163763e703c319e4554c2f455535c5adb6e51e8
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
 -- 
 2.43.0
 

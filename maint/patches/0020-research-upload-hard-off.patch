@@ -215,8 +215,8 @@ index 66e8af7a67136ac052191673d8456b33382c3b05..0bbacdb9944b2ed06618c1f98779014a
  #[serial]
  fn resolve_goal_defaults_to_true_when_unset() {
 
-base-commit: 5163763e703c319e4554c2f455535c5adb6e51e8
-prerequisite-patch-id: 60e67e7c5b0de66fb55d78ab65d7e8fc42c5a4f8
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 -- 
 2.43.0

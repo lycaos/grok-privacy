@@ -52,9 +52,9 @@ Gork-Risk: low
  .../codegen/xai-grok-pager/src/views/mod.rs   |    1 +
  .../codegen/xai-grok-pager/src/views/modal.rs |    6 +
  .../xai-grok-pager/src/views/prompts_modal.rs | 1909 +++++++++++++++++
- crates/codegen/xai-grok-shell/CHANGELOG.md    |    7 +
+ crates/codegen/xai-grok-shell/CHANGELOG.md    |    6 +
  .../session/acp_session_impl/model_switch.rs  |    2 +-
- 29 files changed, 3137 insertions(+), 23 deletions(-)
+ 29 files changed, 3136 insertions(+), 23 deletions(-)
  create mode 100644 crates/codegen/xai-grok-agent/src/prompt/catalog.rs
  create mode 100644 crates/codegen/xai-grok-pager/docs/user-guide/25-prompts.md
  create mode 100644 crates/codegen/xai-grok-pager/src/slash/commands/prompts.rs
@@ -1233,10 +1233,10 @@ index ec14eee8a9ff1566aaed169f9b039fef1b406966..7283de2ad69bfff582d16e8337e7acf7
  ---
  
 diff --git a/crates/codegen/xai-grok-pager/src/app/actions.rs b/crates/codegen/xai-grok-pager/src/app/actions.rs
-index 8a598ae23ec23c2387a429c7a5fe9bbcbbc56ac8..9f3d1fe5e28559575715ff1cab79ff31a8960e63 100644
+index 4696368f63da3e99aae0c457405ad62becbe46d6..b3755298340f25b7f7eb158acecf9ffe10a27662 100644
 --- a/crates/codegen/xai-grok-pager/src/app/actions.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/actions.rs
-@@ -1000,6 +1000,8 @@ pub enum Action {
+@@ -1002,6 +1002,8 @@ pub enum Action {
      },
      /// Open the memory browser modal.
      OpenMemoryModal,
@@ -1245,7 +1245,7 @@ index 8a598ae23ec23c2387a429c7a5fe9bbcbbc56ac8..9f3d1fe5e28559575715ff1cab79ff31
      /// Open the hidden `/gboom` easter egg (DOOM-style raycaster modal).
      OpenGboom,
      /// Suspend the TUI and open a configuration file in `$EDITOR`.
-@@ -1007,6 +1009,8 @@ pub enum Action {
+@@ -1009,6 +1011,8 @@ pub enum Action {
          path: std::path::PathBuf,
          /// Reload `/config-agents` list after the editor exits (when set).
          refresh_agents_modal: Option<crate::views::agents_modal::AgentsTab>,
@@ -1293,7 +1293,7 @@ index 97197ae9413c0876c1275383f39b88c03b946810..061fbcc2cefb124e388d6691d44802cc
          match self.shortcuts_bar_content(registry, esc_owned_before_agent) {
              ShortcutsBarContent::Hidden => {}
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
-index 1d958cc9bf3ba6190669570ba23f9144dd89be34..d6c867276a409954460b746b63114190c2555b35 100644
+index dd0063703c5a902f6ea79b8e76308f7960e5e395..285029c1b8a89c054b483426a67cd8e9e65a4aef 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
 @@ -91,9 +91,9 @@ use super::settings::setters::{
@@ -1309,7 +1309,7 @@ index 1d958cc9bf3ba6190669570ba23f9144dd89be34..d6c867276a409954460b746b63114190
  };
  use super::status::{
      dispatch_copy_session_id, dispatch_manage_billing, dispatch_open_gboom, dispatch_open_tutorial,
-@@ -1297,10 +1297,12 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+@@ -1308,10 +1308,12 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
              }
              vec![]
          }
@@ -1322,7 +1322,7 @@ index 1d958cc9bf3ba6190669570ba23f9144dd89be34..d6c867276a409954460b746b63114190
          } => {
              if app.pending_editor.is_none() {
                  if let ActiveView::Agent(id) = app.active_view
-@@ -1312,6 +1314,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+@@ -1323,6 +1325,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
                      crate::app::external_editor::PendingEditorRequest::ConfigFile {
                          path,
                          refresh_agents_modal,
@@ -3651,10 +3651,10 @@ index 0000000000000000000000000000000000000000..974490b25a65d3147c56d3971fb88020
 +    }
 +}
 diff --git a/crates/codegen/xai-grok-shell/CHANGELOG.md b/crates/codegen/xai-grok-shell/CHANGELOG.md
-index a2f99879f1ae09d12b05c8cde12e5c3ba45b2c56..5d4f28f3215b288a20526361d6934d1e9691756b 100644
+index dab65b4fed4a588fde945cf77e1cc9cb69cd9011..37176a057370daaeb9287cf2e86fbeb00160feaf 100644
 --- a/crates/codegen/xai-grok-shell/CHANGELOG.md
 +++ b/crates/codegen/xai-grok-shell/CHANGELOG.md
-@@ -1,5 +1,12 @@
+@@ -1,5 +1,11 @@
  # Changelog
  
 +# Unreleased
@@ -3663,8 +3663,7 @@ index a2f99879f1ae09d12b05c8cde12e5c3ba45b2c56..5d4f28f3215b288a20526361d6934d1e
 +
 +- **`/prompts`** opens a TUI browser for system and subagent prompt templates: preview the stock defaults shipped in the binary, edit overrides in-app (or with `$EDITOR`), reset to defaults, and save/apply named presets under `~/.grok` so personal prompts never live in the project git tree. See [Prompt templates (`/prompts`)](../xai-grok-pager/docs/user-guide/25-prompts.md).
 +
-+
- # 1.0.4 — 2026-08-13
+ # 1.0.5 — 2026-08-15
  
  ## Features
 diff --git a/crates/codegen/xai-grok-shell/src/session/acp_session_impl/model_switch.rs b/crates/codegen/xai-grok-shell/src/session/acp_session_impl/model_switch.rs
@@ -3681,15 +3680,15 @@ index e6e5d2ad154eb5f7c8a36ed11454e5fab14965e4..d2e248fdd17d4a41be5772326d85f378
                      } else {
                          sys.content =
 
-base-commit: 5163763e703c319e4554c2f455535c5adb6e51e8
-prerequisite-patch-id: 60e67e7c5b0de66fb55d78ab65d7e8fc42c5a4f8
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
 prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
 prerequisite-patch-id: 83fd3778a80e37c86ba4a682fe1122f05b36bf68
-prerequisite-patch-id: aa199264f192b3636876673b721b43a215c375ef
+prerequisite-patch-id: 0e555246a66056f4876f40e73e8f379c421e890e
 prerequisite-patch-id: f0ee51344dfd57c673953dac5b8e36c12515bf97
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: 5054621d4b6a314c4c2f894e4734d47412346e88
