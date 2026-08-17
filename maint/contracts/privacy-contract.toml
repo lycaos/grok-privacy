@@ -144,3 +144,22 @@ group = "egress"
 # Expensive: builds release binary if missing. Skip with --skip-expensive.
 expensive = true
 command = ["./scripts/privacy_egress_check.sh"]
+
+# Feature contracts for 0078-prompts-modal: not privacy invariants, but the
+# feature once vanished silently in a repatch, and declaring contracts is what
+# makes the patch eligible for --auto-resolve-conflicts. In the "privacy"
+# group so the default sweep keeps guarding it (sub-second once compiled).
+# Deliberately narrow filters: upstream 1.0.5 ships two broken queue-drain
+# tests under the wider `prompts` filter that are theirs, not this patch's.
+
+[[contract]]
+id = "prompts-templates"
+group = "privacy"
+min_tests = 200
+command = ["cargo", "test", "-p", "xai-grok-agent", "--lib", "prompt"]
+
+[[contract]]
+id = "prompts-modal-ui"
+group = "privacy"
+min_tests = 5
+command = ["cargo", "test", "-p", "xai-grok-pager", "--lib", "views::prompts_modal"]

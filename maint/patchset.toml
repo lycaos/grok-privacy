@@ -93,7 +93,7 @@ file = "0078-prompts-modal.patch"
 # feature once vanished that way (it lived outside the queue and the 1.0.1
 # repatch dropped it). A conflict here must stop the sync.
 critical = true
-contracts = []
+contracts = ["prompts-templates", "prompts-modal-ui"]
 
 # Trailing non-critical: may be skipped on upstream conflict (draft PR still opens).
 [[patch]]
