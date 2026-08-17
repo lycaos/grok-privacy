@@ -1,8 +1,8 @@
 {
-  "branch": "sync/upstream-1.0.4-5163763",
-  "upstream": "5163763e703c319e4554c2f455535c5adb6e51e8",
-  "version": "1.0.4",
-  "source_rev": "84ae1223e57a5048afb570d74d45c051fa604982",
+  "branch": "sync/upstream-1.0.5-9fabade",
+  "upstream": "9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4",
+  "version": "1.0.5",
+  "source_rev": "7bd63df3c9bb1bf98e7a9b3486f4a0189ea94e55",
   "applied": [
     "0001-privacy-core.patch",
     "0010-telemetry-hard-off.patch",
@@ -23,5 +23,6 @@
   ],
   "skipped": [],
   "conflicted": null,
+  "auto_resolved": [],
   "branding_required": false
 }
