@@ -1,0 +1,28 @@
+{
+  "branch": "sync/upstream-1.0.8-c2ad97f",
+  "upstream": "c2ad97f8",
+  "version": "1.0.8",
+  "source_rev": "437c7c928f3fcd13e9d37a51d887f41d7f84185d",
+  "applied": [
+    "0001-privacy-core.patch",
+    "0010-telemetry-hard-off.patch",
+    "0020-research-upload-hard-off.patch",
+    "0030-retention-opt-out.patch",
+    "0040-vendor-updater-hard-off.patch",
+    "0050-privacy-contract-tests.patch",
+    "0055-session-writeback-hard-off.patch",
+    "0056-consent-record-hard-off.patch",
+    "0057-pager-test-drift.patch",
+    "0060-egress-guard.patch",
+    "0070-supply-chain-policy.patch",
+    "0075-win-build-portability.patch",
+    "0078-prompts-modal.patch",
+    "0080-product-identity.patch",
+    "0081-package-publishing.patch",
+    "0082-branding-docs.patch"
+  ],
+  "skipped": [],
+  "conflicted": null,
+  "auto_resolved": [],
+  "branding_required": false
+}
