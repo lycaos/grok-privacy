@@ -22,7 +22,7 @@ Gork-Risk: critical
  11 files changed, 458 insertions(+), 141 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-update/Cargo.toml b/crates/codegen/xai-grok-update/Cargo.toml
-index 045ee6c2fd5a4cbfbf1e541577f659ddfb417a16..75720e056a173839beac9592bc663ba99a4953c7 100644
+index fe47a6fd94d213da6b6027ab877d5df881c8e73a..b4b16fdb60a1b1dad751e5f9b0763e8d8efee888 100644
 --- a/crates/codegen/xai-grok-update/Cargo.toml
 +++ b/crates/codegen/xai-grok-update/Cargo.toml
 @@ -4,6 +4,13 @@ name = "xai-grok-update"
@@ -40,7 +40,7 @@ index 045ee6c2fd5a4cbfbf1e541577f659ddfb417a16..75720e056a173839beac9592bc663ba9
  anyhow = { workspace = true }
  futures = { workspace = true }
 diff --git a/crates/codegen/xai-grok-update/src/auto_update.rs b/crates/codegen/xai-grok-update/src/auto_update.rs
-index d5e734b4467b46f733a576a50015abcc877590a8..7c32f6fd06d0564b9d3c9e86d0f5f1f0b6372d44 100644
+index 3bd50d1732e87283f7cb585d04ee561df60f4a80..dd06b1ed2b95b718c8d84707f016b9826332abe6 100644
 --- a/crates/codegen/xai-grok-update/src/auto_update.rs
 +++ b/crates/codegen/xai-grok-update/src/auto_update.rs
 @@ -30,54 +30,24 @@ pub enum UpdateRunMode {
@@ -341,7 +341,7 @@ index d5e734b4467b46f733a576a50015abcc877590a8..7c32f6fd06d0564b9d3c9e86d0f5f1f0
      // What's on disk is being replaced, not this (possibly stale) process's
      // version; npm has no trustworthy disk version, so it falls back.
      let from_version =
-@@ -1372,6 +1427,12 @@ async fn download_cli_artifact_from_gcs(
+@@ -1370,6 +1425,12 @@ async fn download_cli_artifact_from_gcs(
  
  /// Returns the version that was actually activated.
  async fn install_internal(target: Option<&str>, update_config: &UpdateConfig) -> Result<String> {
@@ -354,7 +354,7 @@ index d5e734b4467b46f733a576a50015abcc877590a8..7c32f6fd06d0564b9d3c9e86d0f5f1f0
      let bases = crate::version::cli_base_urls();
      let base_refs: Vec<&str> = bases.iter().map(String::as_str).collect();
      install_internal_from_bases(target, update_config, &base_refs).await
-@@ -2553,7 +2614,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
+@@ -2551,7 +2612,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
      warn_if_other_grok_processes_running();
  
      let version_arg = match target {
@@ -363,7 +363,7 @@ index d5e734b4467b46f733a576a50015abcc877590a8..7c32f6fd06d0564b9d3c9e86d0f5f1f0
          None => {
              // All current callers resolve the version via get_latest_version
              // (which applies max(stable, alpha) for the alpha channel) before
-@@ -2564,7 +2625,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
+@@ -2562,7 +2623,7 @@ fn install_npm(target: Option<&str>, channel: &str, npm_registry: Option<&str>)
                  "install_npm called without a resolved version, falling back to dist-tag"
              );
              format!(
@@ -372,7 +372,7 @@ index d5e734b4467b46f733a576a50015abcc877590a8..7c32f6fd06d0564b9d3c9e86d0f5f1f0
                  if channel == "alpha" {
                      "alpha"
                  } else {
-@@ -2644,6 +2705,11 @@ pub async fn run_update(
+@@ -2642,6 +2703,11 @@ pub async fn run_update(
      update_config: &mut UpdateConfig,
      trigger: CliUpdateTrigger,
  ) -> Result<Option<String>> {
@@ -914,9 +914,9 @@ index b031ee7b03995634ff473163fe48fe7a05abdb57..1acf50f3fbd51e74131f0049208ca957
          log[0]
      );
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
-prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
-prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
+prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 -- 

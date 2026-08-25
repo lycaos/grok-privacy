@@ -62,7 +62,7 @@ index 0000000000000000000000000000000000000000..52e7c11563657ae27fbac392915b963d
 +    "RUSTSEC-2026-0257",
 +]
 diff --git a/Cargo.lock b/Cargo.lock
-index 0699b8c5150aff7cb6a1b2543992ef6ce46c33a6..85d7389a00ab065020d312bfa954c56f83a27811 100644
+index 8ae0ed010e18f164d5c9f5ac862b0fb5a5195274..0bb4f57b39bdee44c2bfd125969c3e53b4c5409e 100644
 --- a/Cargo.lock
 +++ b/Cargo.lock
 @@ -2270,9 +2270,9 @@ dependencies = [
@@ -78,16 +78,16 @@ index 0699b8c5150aff7cb6a1b2543992ef6ce46c33a6..85d7389a00ab065020d312bfa954c56f
   "crossbeam-utils",
  ]
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
-prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
-prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
+prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
 prerequisite-patch-id: 83fd3778a80e37c86ba4a682fe1122f05b36bf68
 prerequisite-patch-id: 0e555246a66056f4876f40e73e8f379c421e890e
-prerequisite-patch-id: f0ee51344dfd57c673953dac5b8e36c12515bf97
+prerequisite-patch-id: 790cf86991ad65cc739b3cb7a50d7b18409b38b9
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 -- 
 2.43.0

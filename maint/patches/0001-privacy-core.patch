@@ -12,12 +12,12 @@ Gork-Risk: critical
  2 files changed, 60 insertions(+), 2 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-version/Cargo.toml b/crates/codegen/xai-grok-version/Cargo.toml
-index 67fd01ba2c9cf0fa2f896c190952caaea901f4fa..b59b99326f3dd0efd52ad64ceecd56aa35147e00 100644
+index a81ee3832322f15a32aa4882024fa59ecde1974d..912179d6ee2922505eec35fca2ad22aa7553669e 100644
 --- a/crates/codegen/xai-grok-version/Cargo.toml
 +++ b/crates/codegen/xai-grok-version/Cargo.toml
 @@ -3,7 +3,7 @@ license = "Apache-2.0"
  name = "xai-grok-version"
- version = "1.0.5"
+ version = "1.0.8"
  edition.workspace = true
 -description = "Lockstepped grok CLI version."
 +description = "Lockstepped Grok Privacy CLI version and privacy-build constants."
@@ -25,7 +25,7 @@ index 67fd01ba2c9cf0fa2f896c190952caaea901f4fa..b59b99326f3dd0efd52ad64ceecd56aa
  [dependencies]
  semver = { workspace = true }
 diff --git a/crates/codegen/xai-grok-version/src/lib.rs b/crates/codegen/xai-grok-version/src/lib.rs
-index b7d224fc92d5e25ba5dae888fb60335c3c0933ad..52a00f2764b05622947d963e1442bd5046356fe9 100644
+index e870de4772870cfe25eb98f51cb88d99c2dc0875..7fb6357d3ac1ac8bee93f0c1acb48957c6752c57 100644
 --- a/crates/codegen/xai-grok-version/src/lib.rs
 +++ b/crates/codegen/xai-grok-version/src/lib.rs
 @@ -1,9 +1,47 @@
@@ -77,7 +77,7 @@ index b7d224fc92d5e25ba5dae888fb60335c3c0933ad..52a00f2764b05622947d963e1442bd50
  pub const TEST_VERSION_ENV: &str = "GROK_TEST_VERSION";
  
  pub const VERSION: &str = match option_env!("GROK_VERSION") {
-@@ -63,6 +101,26 @@ pub fn display_version_with_commit(version_with_commit: &str, channel_label: &st
+@@ -66,6 +104,26 @@ pub fn display_version_with_commit(version_with_commit: &str, channel_label: &st
  mod tests {
      use super::*;
  
@@ -105,7 +105,7 @@ index b7d224fc92d5e25ba5dae888fb60335c3c0933ad..52a00f2764b05622947d963e1442bd50
      /// works correctly across all label states (alpha, stable, empty).
      #[test]
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
 -- 
 2.43.0
 

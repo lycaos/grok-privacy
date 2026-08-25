@@ -29,10 +29,10 @@ Gork-Risk: critical
  3 files changed, 20 insertions(+), 2 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs
-index 7d7b8d76f302ed6dc4af8a764b68b89ec6a9b2a7..8e7344673be5832668ec5530c431c7174f40abbe 100644
+index 6bc9c7c5e25e8ae9ad725b06db44015fca5c8157..f7d54a7a48cbf570938014ce370f2f1e2def519e 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/session/lifecycle.rs
-@@ -667,7 +667,12 @@ pub(in crate::app::dispatch) fn dispatch_accept_consent(app: &mut AppView) -> Ve
+@@ -669,7 +669,12 @@ pub(in crate::app::dispatch) fn dispatch_accept_consent(app: &mut AppView) -> Ve
              acked: false,
          });
      }
@@ -47,7 +47,7 @@ index 7d7b8d76f302ed6dc4af8a764b68b89ec6a9b2a7..8e7344673be5832668ec5530c431c717
      effects
  }
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs
-index bc24a684700f1b38d521d6e7b2e804f07bc9949c..4571647402e6264fa661e81d195d99fe1fa33ba3 100644
+index fea0685b9f7a415b97c51b13dd15650764616dbd..9af5d87c6967c0bbf22c6b9a628136387378b762 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/session/lifecycle.rs
 @@ -1235,10 +1235,12 @@ fn accepting_records_the_answer_and_replays_deferred_startup() {
@@ -65,10 +65,10 @@ index bc24a684700f1b38d521d6e7b2e804f07bc9949c..4571647402e6264fa661e81d195d99fe
      assert!(
          effects
 diff --git a/crates/codegen/xai-grok-pager/src/app/effects/mod.rs b/crates/codegen/xai-grok-pager/src/app/effects/mod.rs
-index 9095a1fd14ee0e803f4488dac5db25aa97fc2119..12d5a030ab2551db04237ae1c02ed469a4fcadeb 100644
+index 96a953b5105a52db3a60cc47e85e9f39d1bbcad5..a41914963fdf2c0afdbe9c978823b9bcd539d0d3 100644
 --- a/crates/codegen/xai-grok-pager/src/app/effects/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/effects/mod.rs
-@@ -1994,6 +1994,17 @@ pub(crate) fn execute(
+@@ -2020,6 +2020,17 @@ pub(crate) fn execute(
                  });
          }
          Effect::RecordConsentUpstream { notice_id, version } => {
@@ -87,9 +87,9 @@ index 9095a1fd14ee0e803f4488dac5db25aa97fc2119..12d5a030ab2551db04237ae1c02ed469
              tasks
                  .spawn(async move {
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
-prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
-prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
+prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000

@@ -47,7 +47,7 @@ Gork-Risk: low
  2 files changed, 78 insertions(+), 103 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs b/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs
-index 5173b5cbfac070f7fe836e3c322d9db96f8db1ce..b3b2c1e85d8c4056d0fdc65523bd5c64f437fa58 100644
+index 29f0d3782a541daae82d6975cd6ea5da08962ca4..36dc1733eda43c6c3c272a362b56f83981942b12 100644
 --- a/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs
 +++ b/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs
 @@ -7109,6 +7109,13 @@ fn max_thoughts_width_preview_content_is_italic() {
@@ -88,7 +88,7 @@ index 5173b5cbfac070f7fe836e3c322d9db96f8db1ce..b3b2c1e85d8c4056d0fdc65523bd5c64
      );
      assert!(
 diff --git a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
-index fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5..41e35a2b6ac7ee481cfb6181eeb300109230e0fa 100644
+index 1c38a51304a154d14970d5cd1d3ae22bdd07512d..9f3cef652ad0a1ad2b0d8451e7f270c682ffd3e7 100644
 --- a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
 +++ b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
 @@ -421,11 +421,14 @@ fn space_on_confirm_before_rewind_dispatches_typed_setter() {
@@ -191,7 +191,7 @@ index fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5..41e35a2b6ac7ee481cfb6181eeb30010
 +        let _ = handle_settings_key(&mut s, &press(nav));
      }
 -}
--
+ 
 -/// Enter commits `SetCodingDataSharing { opted_in }` (opt-in→true).
 -#[test]
 -fn pr9_coding_data_sharing_picker_enter_dispatches_set_commit() {
@@ -215,7 +215,7 @@ index fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5..41e35a2b6ac7ee481cfb6181eeb30010
 -        "opt-out" => false,
 -        _ => panic!("unexpected canonical: {other_canonical:?}"),
 -    };
- 
+-
 -    let mut s = make_state();
 -    navigate_to(&mut s, "coding_data_sharing");
 -    let _ = handle_settings_key(&mut s, &press(KeyCode::Enter));
@@ -321,7 +321,7 @@ index fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5..41e35a2b6ac7ee481cfb6181eeb30010
  #[test]
  fn pr10_plan_mode_picker_nav_does_not_dispatch_preview() {
      for nav_key in &[
-@@ -6432,7 +6391,10 @@ fn pr13_space_on_auto_update_dispatches_typed_setter() {
+@@ -6433,7 +6392,10 @@ fn pr13_space_on_auto_update_dispatches_typed_setter() {
      let mut s = make_state();
      navigate_to(&mut s, "auto_update");
      let outcome = handle_settings_key(&mut s, &press(KeyCode::Char(' ')));
@@ -333,7 +333,7 @@ index fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5..41e35a2b6ac7ee481cfb6181eeb30010
  }
  
  /// Value-column click on `show_tips` toggles in one click.
-@@ -6476,7 +6438,8 @@ fn pr13_mouse_click_on_auto_update_two_stage_select_then_toggle() {
+@@ -6477,7 +6439,8 @@ fn pr13_mouse_click_on_auto_update_two_stage_select_then_toggle() {
          10,
          row_y,
      );
@@ -344,9 +344,9 @@ index fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5..41e35a2b6ac7ee481cfb6181eeb30010
  
  /// CLI-batch settings are all `restart_required: true`.
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
-prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
-prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
+prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000

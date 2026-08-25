@@ -11,11 +11,11 @@ Gork-Risk: critical
  .../codegen/xai-grok-telemetry/src/client.rs  | 12 ++--
  .../codegen/xai-grok-telemetry/src/config.rs  | 44 +++++++-------
  .../codegen/xai-grok-telemetry/src/sentry.rs  | 11 ++--
- crates/codegen/xai-mixpanel/src/lib.rs        | 57 ++++++-------------
- 5 files changed, 49 insertions(+), 79 deletions(-)
+ crates/codegen/xai-mixpanel/src/lib.rs        | 60 ++++++-------------
+ 5 files changed, 50 insertions(+), 81 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-telemetry/Cargo.toml b/crates/codegen/xai-grok-telemetry/Cargo.toml
-index 93b952c849297c3d6beaaac02bf8ea260517a8ea..adfdca99c74eafc575021fbf0e81f649e016d697 100644
+index b7838137ada0179def310410763d30222997c1d1..df76afc2b2936f78e15b965e0d9a536161c37f56 100644
 --- a/crates/codegen/xai-grok-telemetry/Cargo.toml
 +++ b/crates/codegen/xai-grok-telemetry/Cargo.toml
 @@ -3,8 +3,8 @@ license = "Apache-2.0"
@@ -30,7 +30,7 @@ index 93b952c849297c3d6beaaac02bf8ea260517a8ea..adfdca99c74eafc575021fbf0e81f649
  [features]
  default = []
 diff --git a/crates/codegen/xai-grok-telemetry/src/client.rs b/crates/codegen/xai-grok-telemetry/src/client.rs
-index 49eb1691081af33ddacc67ff106c7c3c8572c547..2981e530950b19eff0e10d3f8b237a3383918086 100644
+index 2e9329f5a9bfc2c7d6c1cd9a5a9b19b0944c803a..582b44782a103acea1a1f3a227f56b8b6ffae0f9 100644
 --- a/crates/codegen/xai-grok-telemetry/src/client.rs
 +++ b/crates/codegen/xai-grok-telemetry/src/client.rs
 @@ -85,14 +85,10 @@ impl TelemetryClient {
@@ -41,7 +41,7 @@ index 49eb1691081af33ddacc67ff106c7c3c8572c547..2981e530950b19eff0e10d3f8b237a33
 -            config
 -                .mixpanel_token
 -                .as_ref()
--                .map(|token| Arc::new(Mixpanel::new(token.as_str())))
+-                .map(|token| Arc::new(Mixpanel::with_client(token.as_str(), http_client.clone())))
 -        } else {
 -            None
 -        };
@@ -142,7 +142,7 @@ index 74a83a2eb5948c130aa9105805c8d1b5614004ca..8d6fe3ec36f60f06b7460f425c3446c1
      let scrubber = Scrubber::from_env();
  
 diff --git a/crates/codegen/xai-mixpanel/src/lib.rs b/crates/codegen/xai-mixpanel/src/lib.rs
-index 94a1a836706b674827af4fcde1c61bfab17505d1..b92bfcd533d8d3b64f73f0dcb251126c859ddc64 100644
+index cd748e55d7402283c770d717da0bd74365f85ed8..05ffebf211a4e84b6563630cd4aef0a49e554d8a 100644
 --- a/crates/codegen/xai-mixpanel/src/lib.rs
 +++ b/crates/codegen/xai-mixpanel/src/lib.rs
 @@ -5,7 +5,6 @@
@@ -153,7 +153,15 @@ index 94a1a836706b674827af4fcde1c61bfab17505d1..b92bfcd533d8d3b64f73f0dcb251126c
  use std::collections::HashMap;
  
  /// Mixpanel client for sending track events.
-@@ -44,6 +43,10 @@ impl Mixpanel {
+@@ -24,6 +23,7 @@ pub enum Error {
+     Json(#[from] serde_json::Error),
+ }
+ 
++#[allow(dead_code)] // unused: privacy no-op track/engage paths never send requests
+ const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+ 
+ impl Mixpanel {
+@@ -47,6 +47,10 @@ impl Mixpanel {
      /// Scrub property string values in place, then inject the project
      /// token. Split out from [`Self::track`] so the scrub-then-inject
      /// ordering is testable.
@@ -164,7 +172,7 @@ index 94a1a836706b674827af4fcde1c61bfab17505d1..b92bfcd533d8d3b64f73f0dcb251126c
      fn prepare_properties(
          &self,
          mut properties: HashMap<String, serde_json::Value>,
-@@ -57,58 +60,30 @@ impl Mixpanel {
+@@ -60,60 +64,30 @@ impl Mixpanel {
  
      /// Track an event. Properties should include `distinct_id`. The
      /// project `token` is injected after scrubbing, so it isn't redacted.
@@ -189,6 +197,7 @@ index 94a1a836706b674827af4fcde1c61bfab17505d1..b92bfcd533d8d3b64f73f0dcb251126c
 -
 -        self.client
 -            .post("https://api.mixpanel.com/track")
+-            .timeout(REQUEST_TIMEOUT)
 -            .form(&[("data", &encoded)])
 -            .send()
 -            .await?;
@@ -227,6 +236,7 @@ index 94a1a836706b674827af4fcde1c61bfab17505d1..b92bfcd533d8d3b64f73f0dcb251126c
 -
 -        self.client
 -            .post("https://api.mixpanel.com/engage")
+-            .timeout(REQUEST_TIMEOUT)
 -            .form(&[("data", &encoded)])
 -            .send()
 -            .await?;
@@ -236,8 +246,8 @@ index 94a1a836706b674827af4fcde1c61bfab17505d1..b92bfcd533d8d3b64f73f0dcb251126c
      }
  }
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
-prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
+prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
 -- 
 2.43.0
 

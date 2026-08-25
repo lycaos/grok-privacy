@@ -52,9 +52,9 @@ Gork-Risk: low
  .../codegen/xai-grok-pager/src/views/mod.rs   |    1 +
  .../codegen/xai-grok-pager/src/views/modal.rs |    6 +
  .../xai-grok-pager/src/views/prompts_modal.rs | 1909 +++++++++++++++++
- crates/codegen/xai-grok-shell/CHANGELOG.md    |    6 +
+ crates/codegen/xai-grok-shell/CHANGELOG.md    |    7 +-
  .../session/acp_session_impl/model_switch.rs  |    2 +-
- 29 files changed, 3136 insertions(+), 23 deletions(-)
+ 29 files changed, 3136 insertions(+), 24 deletions(-)
  create mode 100644 crates/codegen/xai-grok-agent/src/prompt/catalog.rs
  create mode 100644 crates/codegen/xai-grok-pager/docs/user-guide/25-prompts.md
  create mode 100644 crates/codegen/xai-grok-pager/src/slash/commands/prompts.rs
@@ -92,10 +92,10 @@ index 67e55d0089aa2be830e963e8ac25e5b011c8125f..6ddd78f7f04e50fc200c069004b7de64
  
      /// The tool bridge for this agent.
 diff --git a/crates/codegen/xai-grok-agent/src/config.rs b/crates/codegen/xai-grok-agent/src/config.rs
-index 0deca08fddd81088da239ebdf5018430cd0f69c1..2fa988ed98d6283503b2eeb6b949a51c3455a277 100644
+index e41582a9f7f3d6392d53e346a9201a0ff6e00938..1fff164ad5e4e57efaee315a7f3be039093e3c11 100644
 --- a/crates/codegen/xai-grok-agent/src/config.rs
 +++ b/crates/codegen/xai-grok-agent/src/config.rs
-@@ -1596,35 +1596,35 @@ impl AgentDefinition {
+@@ -1599,35 +1599,35 @@ impl AgentDefinition {
      }
      /// General-purpose subagent definition.
      pub fn general_purpose() -> Self {
@@ -1015,10 +1015,10 @@ index 7af28fe94d4082de8907bf8a0cb4d2e99ce4c868..a20e7d78d20d743cf1f086ca9c5ff0a9
  pub const COMPACT_SYSTEM_PROMPT: &str = "You are an AI coding agent. You operate in a workspace with a provided codebase.\n\n\
       Your main goal is to complete the user's request, denoted within the <user_query> tag.";
 diff --git a/crates/codegen/xai-grok-pager/docs/user-guide/04-slash-commands.md b/crates/codegen/xai-grok-pager/docs/user-guide/04-slash-commands.md
-index 723efc5b91874535777cca954e62547106b0d11f..2ddb1dd1f185ce934008fe9adca4c5707ddd4db6 100644
+index d7dc7c1a1af3f7337647843a358194db989f7186..cc8e2191d3e9c15e555c9f22bbf3783986b8d172 100644
 --- a/crates/codegen/xai-grok-pager/docs/user-guide/04-slash-commands.md
 +++ b/crates/codegen/xai-grok-pager/docs/user-guide/04-slash-commands.md
-@@ -433,6 +433,16 @@ This setting doesn't touch `[features] telemetry`, `trace_upload`, or your exter
+@@ -437,6 +437,16 @@ This setting doesn't touch `[features] telemetry`, `trace_upload`, or your exter
  
  Open the settings modal to view and change configuration interactively. Aliases: `/config`, `/preferences`, `/prefs`.
  
@@ -1036,10 +1036,10 @@ index 723efc5b91874535777cca954e62547106b0d11f..2ddb1dd1f185ce934008fe9adca4c570
  
  Toggle message timestamps on or off.
 diff --git a/crates/codegen/xai-grok-pager/docs/user-guide/05-configuration.md b/crates/codegen/xai-grok-pager/docs/user-guide/05-configuration.md
-index c6d2cf527fcecd0916c4fa158efbd006b22b8f41..fc53f3f4801b2d0d738f6773ef3f33858f2f98f4 100644
+index 8d619b1403e2e8d963b816f6e85682e67c3b3b56..6ad69a257280e140e3fa92ee08f464346626d6aa 100644
 --- a/crates/codegen/xai-grok-pager/docs/user-guide/05-configuration.md
 +++ b/crates/codegen/xai-grok-pager/docs/user-guide/05-configuration.md
-@@ -793,6 +793,8 @@ The key ones. See the README for the complete list.
+@@ -813,6 +813,8 @@ The key ones. See the README for the complete list.
  | `~/.grok/auth.json` | Authentication credentials (auto-managed) |
  | `~/.grok/sessions/` | Persisted sessions (organized by working directory) |
  | `~/.grok/memory/` | Cross-session memory files and index |
@@ -1049,10 +1049,10 @@ index c6d2cf527fcecd0916c4fa158efbd006b22b8f41..fc53f3f4801b2d0d738f6773ef3f3385
  | `~/.grok/plugins/` | User-scoped plugins |
  | `~/.grok/agents/` | User-scoped agent definitions |
 diff --git a/crates/codegen/xai-grok-pager/docs/user-guide/16-subagents.md b/crates/codegen/xai-grok-pager/docs/user-guide/16-subagents.md
-index 4bace062fad6b6fe356287ed2c1c0a277e8555fb..fa78dfd624994ae46169720b98cde51a6b469c99 100644
+index f56a3273dcd984058bb7ac7d759c5f8637d14737..4424019d5cdfa9a7475d338b511c6d68638c61b1 100644
 --- a/crates/codegen/xai-grok-pager/docs/user-guide/16-subagents.md
 +++ b/crates/codegen/xai-grok-pager/docs/user-guide/16-subagents.md
-@@ -260,6 +260,8 @@ model = "grok-build"
+@@ -257,6 +257,8 @@ model = "grok-build"
  prompt_file = ".grok/prompts/researcher.md"
  ```
  
@@ -1221,7 +1221,7 @@ index 0000000000000000000000000000000000000000..0cdc26d7f112e22d4035c84d9913020a
 +- [Subagents and Personas](16-subagents.md) — custom roles / `prompt_file` (separate from this catalog)
 +- [Project Rules (AGENTS.md)](12-project-rules.md) — project instructions layered with the system prompt
 diff --git a/crates/codegen/xai-grok-pager/docs/user-guide/README.md b/crates/codegen/xai-grok-pager/docs/user-guide/README.md
-index ec14eee8a9ff1566aaed169f9b039fef1b406966..7283de2ad69bfff582d16e8337e7acf7d669ee51 100644
+index 6234daff768eaf617406506150f210bb23d88648..b158610b2522bd8907b0ee08f21e43e2365f9058 100644
 --- a/crates/codegen/xai-grok-pager/docs/user-guide/README.md
 +++ b/crates/codegen/xai-grok-pager/docs/user-guide/README.md
 @@ -32,6 +32,7 @@ Customize and extend Grok Build.
@@ -1233,10 +1233,10 @@ index ec14eee8a9ff1566aaed169f9b039fef1b406966..7283de2ad69bfff582d16e8337e7acf7
  ---
  
 diff --git a/crates/codegen/xai-grok-pager/src/app/actions.rs b/crates/codegen/xai-grok-pager/src/app/actions.rs
-index 4696368f63da3e99aae0c457405ad62becbe46d6..b3755298340f25b7f7eb158acecf9ffe10a27662 100644
+index 9ad94ddbcdd21d1bb0e1e1ab01199ac18b65e5f9..6256a49a3eec11d18a4a88b9dd11ce0338441e96 100644
 --- a/crates/codegen/xai-grok-pager/src/app/actions.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/actions.rs
-@@ -1002,6 +1002,8 @@ pub enum Action {
+@@ -1015,6 +1015,8 @@ pub enum Action {
      },
      /// Open the memory browser modal.
      OpenMemoryModal,
@@ -1245,7 +1245,7 @@ index 4696368f63da3e99aae0c457405ad62becbe46d6..b3755298340f25b7f7eb158acecf9ffe
      /// Open the hidden `/gboom` easter egg (DOOM-style raycaster modal).
      OpenGboom,
      /// Suspend the TUI and open a configuration file in `$EDITOR`.
-@@ -1009,6 +1011,8 @@ pub enum Action {
+@@ -1022,6 +1024,8 @@ pub enum Action {
          path: std::path::PathBuf,
          /// Reload `/config-agents` list after the editor exits (when set).
          refresh_agents_modal: Option<crate::views::agents_modal::AgentsTab>,
@@ -1255,7 +1255,7 @@ index 4696368f63da3e99aae0c457405ad62becbe46d6..b3755298340f25b7f7eb158acecf9ffe
      /// Edit the current minimal-mode composer draft in an external editor.
      EditPromptExternal,
 diff --git a/crates/codegen/xai-grok-pager/src/app/agent_view/modals.rs b/crates/codegen/xai-grok-pager/src/app/agent_view/modals.rs
-index 91885d534aab8f388b8aafba67d0ea81a57a16f4..622834537f27385b40b6fca5889c70486b9d59df 100644
+index 491f33a3f3599c4af15ce07282963b3185025d26..683f19df41f30e0746d6cd09db7d026c0b1d088f 100644
 --- a/crates/codegen/xai-grok-pager/src/app/agent_view/modals.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/agent_view/modals.rs
 @@ -72,6 +72,7 @@ impl AgentView {
@@ -1275,10 +1275,10 @@ index 91885d534aab8f388b8aafba67d0ea81a57a16f4..622834537f27385b40b6fca5889c7048
              }
              PersonaDetailOutcome::Changed => InputOutcome::Changed,
 diff --git a/crates/codegen/xai-grok-pager/src/app/agent_view/render.rs b/crates/codegen/xai-grok-pager/src/app/agent_view/render.rs
-index 97197ae9413c0876c1275383f39b88c03b946810..061fbcc2cefb124e388d6691d44802cc0a83ed0c 100644
+index 442b5373f10e57cf74fd58f5c2174c23462444a8..b9f62baf9c28805be9229c1e4bc09d84cdc24544 100644
 --- a/crates/codegen/xai-grok-pager/src/app/agent_view/render.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/agent_view/render.rs
-@@ -3374,7 +3374,12 @@ impl AgentView {
+@@ -3444,7 +3444,12 @@ impl AgentView {
          if self.active_modal.is_some() {
              self.draw_active_modal(area, buf, theme, compact);
              self.pane_areas = layout.pane_areas();
@@ -1293,7 +1293,7 @@ index 97197ae9413c0876c1275383f39b88c03b946810..061fbcc2cefb124e388d6691d44802cc
          match self.shortcuts_bar_content(registry, esc_owned_before_agent) {
              ShortcutsBarContent::Hidden => {}
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
-index dd0063703c5a902f6ea79b8e76308f7960e5e395..285029c1b8a89c054b483426a67cd8e9e65a4aef 100644
+index 3b9ce8c2db5746a3ccf721687372d46cd7fa84d1..39015f4cde79605468f812f154f47a165009375a 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
 @@ -91,9 +91,9 @@ use super::settings::setters::{
@@ -1309,7 +1309,7 @@ index dd0063703c5a902f6ea79b8e76308f7960e5e395..285029c1b8a89c054b483426a67cd8e9
  };
  use super::status::{
      dispatch_copy_session_id, dispatch_manage_billing, dispatch_open_gboom, dispatch_open_tutorial,
-@@ -1308,10 +1308,12 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+@@ -1322,10 +1322,12 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
              }
              vec![]
          }
@@ -1322,7 +1322,7 @@ index dd0063703c5a902f6ea79b8e76308f7960e5e395..285029c1b8a89c054b483426a67cd8e9
          } => {
              if app.pending_editor.is_none() {
                  if let ActiveView::Agent(id) = app.active_view
-@@ -1323,6 +1325,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+@@ -1337,6 +1339,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
                      crate::app::external_editor::PendingEditorRequest::ConfigFile {
                          path,
                          refresh_agents_modal,
@@ -1331,7 +1331,7 @@ index dd0063703c5a902f6ea79b8e76308f7960e5e395..285029c1b8a89c054b483426a67cd8e9
                  );
              }
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs
-index cc4076c47fbf3aa5d4a2352aed36ea8d72fadaf9..32f09e8c8ff99263831c82e066acc587e8d01b6f 100644
+index 9b4232f67a3b5910f05e102b86d4d3614ded84bc..b4cad37a9663ba70053b422381b9ac387b0f509f 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs
 @@ -31,6 +31,48 @@ pub(in crate::app::dispatch) fn save_success_toast(label: &str, on: bool) -> Str
@@ -1384,10 +1384,10 @@ index cc4076c47fbf3aa5d4a2352aed36ea8d72fadaf9..32f09e8c8ff99263831c82e066acc587
  /// so the next render reads the latest live state. The modal stores
  /// snapshots by value; without this, toggles would appear stuck.
 diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/router.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/router.rs
-index 356de3e65ec46aa607bfcc8c23f43d3770181758..3355e9829bdc50ddb8b233cc685b0c62bae988f6 100644
+index c49e2cee017a7adbf038dbb0a35fa4ddcf0d8ea0..9823bebf5d730668a92a154baf43e7cc486c78c5 100644
 --- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/router.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/router.rs
-@@ -302,6 +302,7 @@ fn config_editor_action_still_uses_typed_request() {
+@@ -309,6 +309,7 @@ fn config_editor_action_still_uses_typed_request() {
          Action::SuspendForEditor {
              path: path.clone(),
              refresh_agents_modal: Some(crate::views::agents_modal::AgentsTab::Agents),
@@ -1395,7 +1395,7 @@ index 356de3e65ec46aa607bfcc8c23f43d3770181758..3355e9829bdc50ddb8b233cc685b0c62
          },
          &mut app,
      );
-@@ -310,6 +311,7 @@ fn config_editor_action_still_uses_typed_request() {
+@@ -317,6 +318,7 @@ fn config_editor_action_still_uses_typed_request() {
          Some(crate::app::external_editor::PendingEditorRequest::ConfigFile {
              path: ref queued,
              refresh_agents_modal: Some(crate::views::agents_modal::AgentsTab::Agents),
@@ -1404,7 +1404,7 @@ index 356de3e65ec46aa607bfcc8c23f43d3770181758..3355e9829bdc50ddb8b233cc685b0c62
      ));
  }
 diff --git a/crates/codegen/xai-grok-pager/src/app/external_editor.rs b/crates/codegen/xai-grok-pager/src/app/external_editor.rs
-index 1d24523f02c1dce40ea766e30c37ab201227fb42..5b8dc91b1c77dddd898992f6e861e2139f16b30f 100644
+index a11016e214aff553566a7dec853393b416050916..21d3855c145f3a664daaa9b8594d5dfdd4e3ee23 100644
 --- a/crates/codegen/xai-grok-pager/src/app/external_editor.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/external_editor.rs
 @@ -37,6 +37,7 @@ pub(crate) enum PendingEditorRequest {
@@ -1458,7 +1458,7 @@ index 1d24523f02c1dce40ea766e30c37ab201227fb42..5b8dc91b1c77dddd898992f6e861e213
          }
          PreparedEditorRequest::PromptDraft {
              agent_id,
-@@ -457,6 +470,7 @@ mod tests {
+@@ -469,6 +482,7 @@ mod tests {
              request: PendingEditorRequest::ConfigFile {
                  path: PathBuf::from("/tmp/agent-config.md"),
                  refresh_agents_modal: None,
@@ -1467,10 +1467,10 @@ index 1d24523f02c1dce40ea766e30c37ab201227fb42..5b8dc91b1c77dddd898992f6e861e213
              message: message.to_owned(),
          };
 diff --git a/crates/codegen/xai-grok-pager/src/app/modals.rs b/crates/codegen/xai-grok-pager/src/app/modals.rs
-index b37bfb77d6f480774ae6ebcf5238c1fec0291723..fb48a725bb8ab575ae54005633b360dd942d87dd 100644
+index e4a473bb9ac2c0bab6e868e56b195581c07a98ae..7fc5d1065c25d13b89c42dc0d493614548666aa1 100644
 --- a/crates/codegen/xai-grok-pager/src/app/modals.rs
 +++ b/crates/codegen/xai-grok-pager/src/app/modals.rs
-@@ -400,6 +400,60 @@ impl AgentView {
+@@ -402,6 +402,60 @@ impl AgentView {
              }
          }
  
@@ -1531,7 +1531,7 @@ index b37bfb77d6f480774ae6ebcf5238c1fec0291723..fb48a725bb8ab575ae54005633b360dd
          // Settings: route through ModalWindow chrome, then delegate.
          if let ActiveModal::Settings { state } = modal {
              // Sub-mode short-circuit: FilterFocused, PickingEnum, PickingGroup,
-@@ -517,6 +571,7 @@ impl AgentView {
+@@ -519,6 +573,7 @@ impl AgentView {
              | ActiveModal::DocViewer { .. }
              | ActiveModal::ShortcutsHelp { .. }
              | ActiveModal::MemoryBrowser { .. }
@@ -1539,7 +1539,7 @@ index b37bfb77d6f480774ae6ebcf5238c1fec0291723..fb48a725bb8ab575ae54005633b360dd
              | ActiveModal::Settings { .. }
              | ActiveModal::UsageInfo { .. }
              | ActiveModal::ResetSettingsConfirm { .. }
-@@ -557,6 +612,9 @@ impl AgentView {
+@@ -559,6 +614,9 @@ impl AgentView {
          if let Some(ActiveModal::MemoryBrowser { state }) = self.active_modal.as_mut() {
              return crate::views::memory_modal::handle_memory_paste(state, text);
          }
@@ -1549,7 +1549,7 @@ index b37bfb77d6f480774ae6ebcf5238c1fec0291723..fb48a725bb8ab575ae54005633b360dd
          let settings_outcome = match self.active_modal.as_mut() {
              Some(ActiveModal::Settings { state }) => Some(
                  crate::views::settings_modal::handle_settings_paste(state, text),
-@@ -1578,6 +1636,31 @@ impl AgentView {
+@@ -1580,6 +1638,31 @@ impl AgentView {
              }
          }
  
@@ -1581,7 +1581,7 @@ index b37bfb77d6f480774ae6ebcf5238c1fec0291723..fb48a725bb8ab575ae54005633b360dd
          // Settings: route through ModalWindow chrome, then delegate.
          if let Some(ActiveModal::Settings { state }) = &mut self.active_modal {
              let outcome =
-@@ -2473,6 +2556,8 @@ impl AgentView {
+@@ -2475,6 +2558,8 @@ impl AgentView {
                  );
              } else if let modal::ActiveModal::MemoryBrowser { state: mem_state } = active_modal {
                  crate::views::memory_modal::render_memory_modal(buf, area, mem_state, compact);
@@ -1604,7 +1604,7 @@ index 8aa585d7d7336d76c6af86cd0270715172ffc752..d261a5ce648a85d169937b7ff591ff2c
          Self::from_edit_outcome(self.buffer.set_cursor_byte(cursor_byte))
      }
 diff --git a/crates/codegen/xai-grok-pager/src/slash/commands/mod.rs b/crates/codegen/xai-grok-pager/src/slash/commands/mod.rs
-index a838cc6d558a032897f0e112c2591dec56b18fec..90f0e85747fe6a0f42bb324e529afdc3619b0269 100644
+index 95b6fc16983abd715b9df8faefd11e06f15f8705..da004685e46aad164b0a1bf9e76bb4b445c48098 100644
 --- a/crates/codegen/xai-grok-pager/src/slash/commands/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/slash/commands/mod.rs
 @@ -46,6 +46,7 @@ pub mod personas;
@@ -1615,14 +1615,14 @@ index a838cc6d558a032897f0e112c2591dec56b18fec..90f0e85747fe6a0f42bb324e529afdc3
  pub mod queue;
  pub mod recap;
  pub mod release_notes;
-@@ -133,6 +134,7 @@ pub fn builtin_commands() -> Vec<Arc<dyn SlashCommand>> {
-         Arc::new(timeline::TimelineCommand),
-         Arc::new(toggle_mouse_reporting::ToggleMouseReportingCommand),
-         Arc::new(settings_cmd::SettingsCommand),
+@@ -146,6 +147,7 @@ pub fn builtin_commands() -> Vec<Arc<dyn SlashCommand>> {
+         Arc::new(release_notes::ReleaseNotesCommand),
+         Arc::new(announcements::AnnouncementsCommand),
+         Arc::new(feedback::FeedbackCommand),
 +        Arc::new(prompts::PromptsCommand),
          Arc::new(privacy::PrivacyCommand),
-         Arc::new(rewind::RewindCommand),
-         Arc::new(jump::JumpCommand),
+         Arc::new(doctor::DoctorCommand),
+         Arc::new(import_claude::ImportClaudeCommand),
 diff --git a/crates/codegen/xai-grok-pager/src/slash/commands/prompts.rs b/crates/codegen/xai-grok-pager/src/slash/commands/prompts.rs
 new file mode 100644
 index 0000000000000000000000000000000000000000..7985f06c4da28221c7fd058f5a22cdb7d21ed4fc
@@ -1693,10 +1693,10 @@ index 0000000000000000000000000000000000000000..7985f06c4da28221c7fd058f5a22cdb7
 +    }
 +}
 diff --git a/crates/codegen/xai-grok-pager/src/views/mod.rs b/crates/codegen/xai-grok-pager/src/views/mod.rs
-index 405424d58e220174d643acd6f8278090e15388b5..8fcc072805dfd5a8011813f42cb72954bc08335a 100644
+index 4ff636255bceee585ae644beb7b9887661a502ac..4ff09d371335e6917f2f289e019dbea29b3c5388 100644
 --- a/crates/codegen/xai-grok-pager/src/views/mod.rs
 +++ b/crates/codegen/xai-grok-pager/src/views/mod.rs
-@@ -33,6 +33,7 @@ pub mod privacy_banner;
+@@ -34,6 +34,7 @@ pub mod privacy_banner;
  pub mod progress_bar;
  pub mod prompt_suggestion;
  pub mod prompt_widget;
@@ -1705,7 +1705,7 @@ index 405424d58e220174d643acd6f8278090e15388b5..8fcc072805dfd5a8011813f42cb72954
  pub mod queue_pane;
  pub mod rewind;
 diff --git a/crates/codegen/xai-grok-pager/src/views/modal.rs b/crates/codegen/xai-grok-pager/src/views/modal.rs
-index e828f6e8f04159ea6bd14c4756a51847125424a7..b66bc11de85123e7bb6ad2dae6c090876569ffae 100644
+index 07039b05a6a9b47096949ebdcc7781025407d244..eac266b22225528e17280a2bb59403d676290ccd 100644
 --- a/crates/codegen/xai-grok-pager/src/views/modal.rs
 +++ b/crates/codegen/xai-grok-pager/src/views/modal.rs
 @@ -284,6 +284,10 @@ pub enum ActiveModal {
@@ -1719,7 +1719,7 @@ index e828f6e8f04159ea6bd14c4756a51847125424a7..b66bc11de85123e7bb6ad2dae6c09087
      /// Settings modal (F2, /settings, palette). Boxed — large state.
      Settings {
          state: Box<crate::views::settings_modal::SettingsModalState>,
-@@ -651,6 +655,7 @@ impl ActiveModal {
+@@ -665,6 +669,7 @@ impl ActiveModal {
              | ActiveModal::DocViewer { .. }
              | ActiveModal::ShortcutsHelp { .. }
              | ActiveModal::MemoryBrowser { .. }
@@ -1727,7 +1727,7 @@ index e828f6e8f04159ea6bd14c4756a51847125424a7..b66bc11de85123e7bb6ad2dae6c09087
              | ActiveModal::Settings { .. }
              | ActiveModal::UsageInfo { .. }
              | ActiveModal::RememberNoteReview { .. } => vec![],
-@@ -681,6 +686,7 @@ impl ActiveModal {
+@@ -695,6 +700,7 @@ impl ActiveModal {
              ActiveModal::DocViewer { title, .. } => title.as_str(),
              ActiveModal::ShortcutsHelp { .. } => "Keyboard Shortcuts",
              ActiveModal::MemoryBrowser { .. } => "Memory",
@@ -3651,7 +3651,7 @@ index 0000000000000000000000000000000000000000..974490b25a65d3147c56d3971fb88020
 +    }
 +}
 diff --git a/crates/codegen/xai-grok-shell/CHANGELOG.md b/crates/codegen/xai-grok-shell/CHANGELOG.md
-index dab65b4fed4a588fde945cf77e1cc9cb69cd9011..37176a057370daaeb9287cf2e86fbeb00160feaf 100644
+index fef6ffb2fdd3b242f94fd665f9f318c890fb37ca..dee380b6a35ec5435c804fdf8bfa380d089de034 100644
 --- a/crates/codegen/xai-grok-shell/CHANGELOG.md
 +++ b/crates/codegen/xai-grok-shell/CHANGELOG.md
 @@ -1,5 +1,11 @@
@@ -3663,14 +3663,22 @@ index dab65b4fed4a588fde945cf77e1cc9cb69cd9011..37176a057370daaeb9287cf2e86fbeb0
 +
 +- **`/prompts`** opens a TUI browser for system and subagent prompt templates: preview the stock defaults shipped in the binary, edit overrides in-app (or with `$EDITOR`), reset to defaults, and save/apply named presets under `~/.grok` so personal prompts never live in the project git tree. See [Prompt templates (`/prompts`)](../xai-grok-pager/docs/user-guide/25-prompts.md).
 +
+ # 1.0.8 — 2026-08-20
+ 
+ ## Features
+@@ -68,7 +74,6 @@
+ - **Video generation** now surfaces a clear ZDR error instead of raw API responses when output storage is required.
+ - **Project hooks** on Windows now correctly expand $CLAUDE_PROJECT_DIR when invoking PowerShell scripts.
+ 
+-
  # 1.0.5 — 2026-08-15
  
  ## Features
 diff --git a/crates/codegen/xai-grok-shell/src/session/acp_session_impl/model_switch.rs b/crates/codegen/xai-grok-shell/src/session/acp_session_impl/model_switch.rs
-index e6e5d2ad154eb5f7c8a36ed11454e5fab14965e4..d2e248fdd17d4a41be5772326d85f3784037ffdd 100644
+index 914a96a95af878375941d77ad84e0db8610801e4..66bd8e895b1c3c765499c920a43469459d16c9c1 100644
 --- a/crates/codegen/xai-grok-shell/src/session/acp_session_impl/model_switch.rs
 +++ b/crates/codegen/xai-grok-shell/src/session/acp_session_impl/model_switch.rs
-@@ -85,7 +85,7 @@ impl SessionActor {
+@@ -86,7 +86,7 @@ impl SessionActor {
                  if let ConversationItem::System(sys) = item {
                      if use_concise {
                          sys.content = std::sync::Arc::<str>::from(
@@ -3680,16 +3688,16 @@ index e6e5d2ad154eb5f7c8a36ed11454e5fab14965e4..d2e248fdd17d4a41be5772326d85f378
                      } else {
                          sys.content =
 
-base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
-prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
-prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
+prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
 prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
 prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
 prerequisite-patch-id: 83fd3778a80e37c86ba4a682fe1122f05b36bf68
 prerequisite-patch-id: 0e555246a66056f4876f40e73e8f379c421e890e
-prerequisite-patch-id: f0ee51344dfd57c673953dac5b8e36c12515bf97
+prerequisite-patch-id: 790cf86991ad65cc739b3cb7a50d7b18409b38b9
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: 5054621d4b6a314c4c2f894e4734d47412346e88
 prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
