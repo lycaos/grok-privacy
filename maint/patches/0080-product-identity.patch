@@ -13,11 +13,11 @@ Gork-Risk: medium
  3 files changed, 38 insertions(+), 19 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-pager-bin/Cargo.toml b/crates/codegen/xai-grok-pager-bin/Cargo.toml
-index 1f07e83edb0ca32fff3f8d78ea0a8d7868a98768..1086843666cd708e1fb461dedabd5f275767cc38 100644
+index 6ebe1af810efb1d51d98a4f002ddc97361929b75..7c7f1274b653274eb3fcf1a4cdc294e8f756c5fc 100644
 --- a/crates/codegen/xai-grok-pager-bin/Cargo.toml
 +++ b/crates/codegen/xai-grok-pager-bin/Cargo.toml
 @@ -3,14 +3,18 @@ name = "xai-grok-pager-bin"
- version = "1.0.8"
+ version = "1.0.10"
  edition.workspace = true
  license = "Apache-2.0"
 -authors = ["xAI"]
@@ -43,7 +43,7 @@ index 1f07e83edb0ca32fff3f8d78ea0a8d7868a98768..1086843666cd708e1fb461dedabd5f27
  name = "xai-grok-pager"
  path = "src/main.rs"
 diff --git a/crates/codegen/xai-grok-pager-bin/src/main.rs b/crates/codegen/xai-grok-pager-bin/src/main.rs
-index ff5235c4230bdaff8f550d109d2dcec96f626d70..08ac95cf323adc7fb52b212f7f988ae1a5b9c7ae 100644
+index 80df6c8be85e7f77dbe4a48c11745814c4e4c108..8f85ad9d02c8f0b02abf781a11bf394eba99cfaa 100644
 --- a/crates/codegen/xai-grok-pager-bin/src/main.rs
 +++ b/crates/codegen/xai-grok-pager-bin/src/main.rs
 @@ -3,7 +3,8 @@
@@ -56,7 +56,7 @@ index ff5235c4230bdaff8f550d109d2dcec96f626d70..08ac95cf323adc7fb52b212f7f988ae1
  )]
  #[cfg(all(feature = "jemalloc", unix))]
  #[global_allocator]
-@@ -1843,7 +1844,8 @@ fn install_heap_profile_hooks() {
+@@ -1844,7 +1845,8 @@ fn install_heap_profile_hooks() {
  }
  fn version_text(channel_label: &str) -> String {
      format!(
@@ -66,7 +66,7 @@ index ff5235c4230bdaff8f550d109d2dcec96f626d70..08ac95cf323adc7fb52b212f7f988ae1
          xai_grok_version::display_version_with_commit(
              xai_grok_version::full_version(),
              channel_label,
-@@ -2678,7 +2680,7 @@ mod tests {
+@@ -2679,7 +2681,7 @@ mod tests {
              let mut output = Vec::new();
              write_version(&mut output, label).unwrap();
              let output = String::from_utf8(output).unwrap();
@@ -144,8 +144,8 @@ index 176f49dcdd81ea2c20aa599dcbd9cbf2e7362093..871fad2acadf35ec5a040b1a98e76778
      }
  }
 
-base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
-prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+base-commit: 77cd7eb675ba911c225c3aaeeece3a20cbccc426
+prerequisite-patch-id: a8d2c1017e731767a6f60cd086d60072e2c1c45a
 prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
@@ -157,7 +157,7 @@ prerequisite-patch-id: 790cf86991ad65cc739b3cb7a50d7b18409b38b9
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: 5054621d4b6a314c4c2f894e4734d47412346e88
 prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
-prerequisite-patch-id: b5bf7fcf09b7fcfa61c89fe7580303f0bd37e75e
+prerequisite-patch-id: 5ca77be2fd5f0f9c07ccc8c7e890aeae30808be8
 -- 
 2.43.0
 

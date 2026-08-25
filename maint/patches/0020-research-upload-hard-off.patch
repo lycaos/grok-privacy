@@ -13,7 +13,7 @@ Gork-Risk: critical
  2 files changed, 129 insertions(+), 6 deletions(-)
 
 diff --git a/crates/codegen/xai-grok-shell/src/agent/config.rs b/crates/codegen/xai-grok-shell/src/agent/config.rs
-index fd2f71b7be75b32a2dd4e0fd72a7e4d53b809df7..4fd188999041b10dcb6a3fb29c27f89d0d699840 100644
+index aad2c2e761aa12b41bf9e415064636dafc0c715e..4f759ec4b0cc2325e6f8851aff932ca9771fc0e9 100644
 --- a/crates/codegen/xai-grok-shell/src/agent/config.rs
 +++ b/crates/codegen/xai-grok-shell/src/agent/config.rs
 @@ -1717,6 +1717,8 @@ pub struct SessionConfig {
@@ -65,7 +65,7 @@ index fd2f71b7be75b32a2dd4e0fd72a7e4d53b809df7..4fd188999041b10dcb6a3fb29c27f89d
          let ff = if mode.value.is_disabled() {
              None
 diff --git a/crates/codegen/xai-grok-shell/src/agent/config_tests.rs b/crates/codegen/xai-grok-shell/src/agent/config_tests.rs
-index b0f4f1bed56e27315200c398667c582c60b7f8fc..6a402e4bd1b87986f5b075f58f3601aa9d52a1c8 100644
+index 7c0df0b9f8aa2b43b6fd81b5c3ee298acd97a8f1..57c341473d4a33b2a0dbbad59f2a93261fbf498b 100644
 --- a/crates/codegen/xai-grok-shell/src/agent/config_tests.rs
 +++ b/crates/codegen/xai-grok-shell/src/agent/config_tests.rs
 @@ -4076,6 +4076,19 @@ fn resolve_trace_upload_disabled_when_telemetry_off_despite_remote_flag() {
@@ -215,8 +215,8 @@ index b0f4f1bed56e27315200c398667c582c60b7f8fc..6a402e4bd1b87986f5b075f58f3601aa
  #[serial]
  fn resolve_goal_defaults_to_true_when_unset() {
 
-base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
-prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+base-commit: 77cd7eb675ba911c225c3aaeeece3a20cbccc426
+prerequisite-patch-id: a8d2c1017e731767a6f60cd086d60072e2c1c45a
 prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 -- 
 2.43.0

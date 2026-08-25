@@ -914,8 +914,8 @@ index b031ee7b03995634ff473163fe48fe7a05abdb57..1acf50f3fbd51e74131f0049208ca957
          log[0]
      );
 
-base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
-prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+base-commit: 77cd7eb675ba911c225c3aaeeece3a20cbccc426
+prerequisite-patch-id: a8d2c1017e731767a6f60cd086d60072e2c1c45a
 prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f

@@ -485,8 +485,8 @@ index f64800f9e92b786f7b0c666ed873ab95a42e50f0..41a5e3c04d0cf90655819a8072438d32
  // `os` + `cpu` filters.
  //
 
-base-commit: c2ad97f87aea4303b6000a2c22128bc91ee76c9b
-prerequisite-patch-id: f79c2fe0d82ed80fa42f40d649c5ac53dde17cf8
+base-commit: 77cd7eb675ba911c225c3aaeeece3a20cbccc426
+prerequisite-patch-id: a8d2c1017e731767a6f60cd086d60072e2c1c45a
 prerequisite-patch-id: 5487467b3ad20cc7a81907e28a3c24f3d109d316
 prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
 prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
@@ -498,8 +498,8 @@ prerequisite-patch-id: 790cf86991ad65cc739b3cb7a50d7b18409b38b9
 prerequisite-patch-id: 1c519f473931ee812a35aa9da4a56632b1373a4f
 prerequisite-patch-id: 5054621d4b6a314c4c2f894e4734d47412346e88
 prerequisite-patch-id: a7e187a5b844c651a576f0404b4b832536ec93db
-prerequisite-patch-id: b5bf7fcf09b7fcfa61c89fe7580303f0bd37e75e
-prerequisite-patch-id: 7fb37213c4a9c7c1f457ba1a9aa508c7b3e70ae4
+prerequisite-patch-id: 5ca77be2fd5f0f9c07ccc8c7e890aeae30808be8
+prerequisite-patch-id: 080879f42c33cbed170592757b4a4f044b48ceaf
 -- 
 2.43.0
 
