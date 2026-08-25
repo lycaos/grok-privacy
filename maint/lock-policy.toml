@@ -15,3 +15,10 @@ post_apply_commands = [
 # cargo_update_pins = [
 #   ["cargo", "update", "-p", "quinn-proto", "--precise", "X.Y.Z"],
 # ]
+#
+# RUSTSEC-2026-0258 : h2 0.4.15 vulnérable (DoS « unbounded empty DATA frames »),
+# correctif 0.4.16 — bump patch-level compatible semver, hors advisory ignorée.
+# À retirer quand le lock amont embarquera h2 >= 0.4.16.
+cargo_update_pins = [
+  ["cargo", "update", "-p", "h2", "--precise", "0.4.16"],
+]
