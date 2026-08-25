@@ -1,0 +1,838 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lycaos <caraboune@gmail.com>
+Date: Wed, 12 Aug 2026 20:37:29 +0200
+Subject: [PATCH] session-writeback-hard-off: /config owns server-side session
+ storage
+
+Writeback pushes whole sessions -- prompts, replies, tool calls and the
+absolute working directory -- to https://code.grok.com, and can be armed
+from three places the user never necessarily sees: --storage-mode
+writeback, GROK_STORAGE_MODE, and writeback_enabled in the settings the
+vendor backend serves. The only brake upstream ships is is_zdr_team(),
+which this fork does not patch: is_data_collection_disabled() is the
+gated predicate, and upstream deliberately routes user-facing sync
+features around it (see its doc comment).
+
+StorageMode::resolve now hands every privacy build to resolve_privacy,
+where the single [cli].session_writeback switch decides and nothing else
+does. init_remote_sync refuses to build a RemoteSync without it, so a
+caller reaching Writeback another way still cannot upload. Asking for
+more privacy is never refused: an explicit `local` beats the opt-in.
+
+The switch is exposed in /config under Privacy ("Session sync to xAI
+servers"), off by default, wired like the existing auto_update row. Its
+description states what actually leaves the machine, and that inference
+reaches xAI either way -- turning this off does not make the client
+offline.
+
+Gork-Patch-Id: session-writeback-hard-off
+Gork-Invariant: session-writeback-opt-in-only
+Gork-Risk: critical
+---
+ .../codegen/xai-grok-pager/src/app/actions.rs |   4 +
+ .../xai-grok-pager/src/app/app_view.rs        |   4 +
+ .../xai-grok-pager/src/app/app_view_tests.rs  |   1 +
+ .../src/app/dispatch/dashboard.rs             |   2 +
+ .../xai-grok-pager/src/app/dispatch/prompt.rs |   2 +
+ .../xai-grok-pager/src/app/dispatch/router.rs |   6 +-
+ .../src/app/dispatch/settings/setters.rs      |  33 ++++++
+ .../src/app/dispatch/settings/ui.rs           |  21 +++-
+ .../src/app/dispatch/tests/mod.rs             |   1 +
+ .../src/app/dispatch/tests/settings.rs        |   4 +
+ .../xai-grok-pager/src/app/effects/helpers.rs |   8 ++
+ .../xai-grok-pager/src/app/event_loop.rs      |   3 +
+ .../xai-grok-pager/src/settings/defs.rs       |  30 +++++
+ .../xai-grok-pager/src/settings/registry.rs   |  13 +++
+ .../src/views/settings_modal/state.rs         |   1 +
+ .../src/views/settings_modal/tests.rs         |   1 +
+ .../xai-grok-pager/tests/settings_e2e.rs      |  47 ++++++++
+ .../xai-grok-shell/src/agent/config.rs        |   6 +
+ .../codegen/xai-grok-shell/src/config/mod.rs  |  61 ++++++++++
+ .../xai-grok-shell/src/session/persistence.rs |   7 ++
+ .../src/util/config/settings_writes.rs        |   7 ++
+ .../xai-grok-shell/tests/privacy_resolvers.rs | 107 ++++++++++++++++++
+ 22 files changed, 363 insertions(+), 6 deletions(-)
+
+diff --git a/crates/codegen/xai-grok-pager/src/app/actions.rs b/crates/codegen/xai-grok-pager/src/app/actions.rs
+index 8987bd4b9ac72fa1b9c506df52f519c15fa6d1f4..4696368f63da3e99aae0c457405ad62becbe46d6 100644
+--- a/crates/codegen/xai-grok-pager/src/app/actions.rs
++++ b/crates/codegen/xai-grok-pager/src/app/actions.rs
+@@ -609,6 +609,10 @@ pub enum Action {
+     /// Commit the `auto_update` preference. Persisted to `[cli].auto_update`.
+     /// Restart-required — auto-update check fires once at startup.
+     SetAutoUpdate(bool),
++    /// Commit the `session_writeback` preference. Persisted to
++    /// `[cli].session_writeback`. Restart-required — the storage mode is
++    /// resolved once when a session is created.
++    SetSessionWriteback(bool),
+     /// Commit `[ui.display_refresh].auto_cadence_enabled`. Restart-required —
+     /// cadence is pinned once at startup.
+     SetDisplayRefreshAutoCadence(bool),
+diff --git a/crates/codegen/xai-grok-pager/src/app/app_view.rs b/crates/codegen/xai-grok-pager/src/app/app_view.rs
+index 0461c0a01818ff9cc58ea0d6f1c2deee9e7cee55..35ea1c157afd23af381e226340b3a636590224e9 100644
+--- a/crates/codegen/xai-grok-pager/src/app/app_view.rs
++++ b/crates/codegen/xai-grok-pager/src/app/app_view.rs
+@@ -1126,6 +1126,9 @@ pub struct AppView {
+     pub show_tips: Option<bool>,
+     /// Persisted `[cli].auto_update` mirror. `None` = no override (default `true`).
+     pub auto_update: Option<bool>,
++    /// Persisted `[cli].session_writeback` mirror. `None` = no override
++    /// (default `false` — sessions never leave this machine).
++    pub session_writeback: Option<bool>,
+     /// Persisted `[toolset.ask_user_question].timeout_enabled` mirror, seeded
+     /// from the effective TOML merge like `show_tips`. `None` = unset in TOML
+     /// (default `true`); toggles write the user layer.
+@@ -1618,6 +1621,7 @@ impl AppView {
+             coding_data_write_seq: 0,
+             show_tips: None,
+             auto_update: None,
++            session_writeback: None,
+             ask_user_question_timeout_enabled: None,
+             zdr_access_enabled: false,
+             usage_billing_redirect_url: None,
+diff --git a/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs b/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
+index 9bec917415b846b4e17112dd943fd02fc6ae1fb1..1a8f75459a6329e634ae0fb4329adda837ccaa02 100644
+--- a/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
++++ b/crates/codegen/xai-grok-pager/src/app/app_view_tests.rs
+@@ -190,6 +190,7 @@ pub(crate) fn test_app() -> AppView {
+         coding_data_write_seq: 0,
+         show_tips: None,
+         auto_update: None,
++        session_writeback: None,
+         ask_user_question_timeout_enabled: None,
+         zdr_access_enabled: false,
+         usage_billing_redirect_url: None,
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
+index ac1ff2617c58b76f97cee0d3d15095b3b53a03b2..17405b4ea8ddeddf6e41e7646b3f191d311e26e7 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/dashboard.rs
+@@ -1313,6 +1313,7 @@ pub(super) fn dispatch_dashboard_dispatch_slash(app: &mut AppView, text: String)
+     let coding_data_sharing_lock_from_app = app.coding_data_sharing_lock();
+     let show_tips_from_app = app.show_tips;
+     let auto_update_from_app = app.auto_update;
++    let session_writeback_from_app = app.session_writeback;
+     let respect_manual_folds_from_app = app.appearance.scrollback.scroll.respect_manual_folds;
+     let auto_mode_gate_from_app = app.auto_mode_gate;
+     let ask_user_question_timeout_enabled_from_app = app.ask_user_question_timeout_enabled;
+@@ -1425,6 +1426,7 @@ pub(super) fn dispatch_dashboard_dispatch_slash(app: &mut AppView, text: String)
+                 plan_mode_active: false,
+                 show_tips: show_tips_from_app,
+                 auto_update: auto_update_from_app,
++                session_writeback: session_writeback_from_app,
+                 vim_mode: crate::appearance::cache::load_vim_mode(),
+                 scroll_speed: crate::appearance::cache::load_scroll_speed(),
+                 respect_manual_folds: respect_manual_folds_from_app,
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/prompt.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/prompt.rs
+index 57acfd8c725e8ccae63cf9b6807d85397b5880f7..66ab51577c0d40b1e84ae5b9db92483980859e5c 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/prompt.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/prompt.rs
+@@ -459,6 +459,7 @@ pub(super) fn dispatch_send_prompt_inner(
+     let coding_data_sharing_lock_from_app = app.coding_data_sharing_lock();
+     let show_tips_from_app = app.show_tips;
+     let auto_update_from_app = app.auto_update;
++    let session_writeback_from_app = app.session_writeback;
+     let respect_manual_folds_from_app = app.appearance.scrollback.scroll.respect_manual_folds;
+     let auto_mode_gate_from_app = app.auto_mode_gate;
+     let ask_user_question_timeout_enabled_from_app = app.ask_user_question_timeout_enabled;
+@@ -561,6 +562,7 @@ pub(super) fn dispatch_send_prompt_inner(
+                     plan_mode_active: agent.plan_mode_pending.unwrap_or(agent.plan_mode_active),
+                     show_tips: show_tips_from_app,
+                     auto_update: auto_update_from_app,
++                    session_writeback: session_writeback_from_app,
+                     vim_mode: crate::appearance::cache::load_vim_mode(),
+                     scroll_speed: crate::appearance::cache::load_scroll_speed(),
+                     respect_manual_folds: respect_manual_folds_from_app,
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
+index 897952fb7c2d4fa1862639683c895924e00b5d43..dd0063703c5a902f6ea79b8e76308f7960e5e395 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/router.rs
+@@ -84,8 +84,9 @@ use super::settings::setters::{
+     set_group_tool_verbs, set_hunk_tracker_mode, set_invert_scroll, set_keep_text_selection,
+     set_max_thoughts_width, set_multiline_mode, set_page_flip_on_send, set_prompt_suggestions,
+     set_remember_tool_approvals, set_render_mermaid, set_respect_manual_folds, set_screen_mode,
+-    set_scroll_lines, set_scroll_mode, set_scroll_speed, set_show_thinking_blocks, set_show_tips,
+-    set_simple_mode, set_theme, set_timeline, set_timestamps, set_vim_mode, set_voice_capture_mode,
++    set_scroll_lines, set_scroll_mode, set_scroll_speed, set_session_writeback,
++    set_show_thinking_blocks, set_show_tips, set_simple_mode, set_theme, set_timeline,
++    set_timestamps, set_vim_mode, set_voice_capture_mode,
+     set_voice_keybind_enabled, set_voice_stt_language,
+ };
+ use super::settings::ui::{
+@@ -1093,6 +1094,7 @@ pub(crate) fn dispatch(action: Action, app: &mut AppView) -> Vec<Effect> {
+         Action::SetMaxThoughtsWidth(v) => set_max_thoughts_width(app, v),
+         Action::SetShowTips(v) => set_show_tips(app, v),
+         Action::SetAutoUpdate(v) => set_auto_update(app, v),
++        Action::SetSessionWriteback(v) => set_session_writeback(app, v),
+         Action::SetDisplayRefreshAutoCadence(v) => set_display_refresh_auto_cadence(app, v),
+         Action::PreviewTheme(v) => preview_theme(app, v),
+         Action::PreviewAutoDarkTheme(v) => preview_auto_dark_theme(app, v),
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/settings/setters.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/settings/setters.rs
+index 02a0b9642610d992fc5544a8161712f6a6a67d3a..d8a0e00dde57960c2fc51722c4dd72877f5430e5 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/settings/setters.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/settings/setters.rs
+@@ -2060,6 +2060,8 @@ pub(super) fn pr13_effective_default(key: &str) -> Option<bool> {
+     match key {
+         "show_tips" => Some(true),
+         "auto_update" => Some(true),
++        // Grok Privacy: sessions stay local unless the user says otherwise.
++        "session_writeback" => Some(false),
+         "toolset.ask_user_question.timeout_enabled" => {
+             Some(ask_user_question::DEFAULT_ASK_USER_QUESTION_TIMEOUT_ENABLED)
+         }
+@@ -2122,6 +2124,37 @@ pub(in crate::app::dispatch) fn set_auto_update(app: &mut AppView, new: bool) ->
+     }]
+ }
+ 
++/// State-only mutation for `session_writeback`.
++pub(super) fn set_session_writeback_inner(app: &mut AppView, value: bool) {
++    app.session_writeback = Some(value);
++}
++
++/// Outer dispatcher for `Action::SetSessionWriteback`.
++///
++/// Grok Privacy's only switch for server-side session storage. Turning it on
++/// is the one thing that lets `StorageMode::resolve` return `Writeback`, so
++/// the toast spells out what the choice means rather than echoing "on/off".
++pub(in crate::app::dispatch) fn set_session_writeback(app: &mut AppView, new: bool) -> Vec<Effect> {
++    let prev_state = app.session_writeback;
++    let prev_effective = prev_state.unwrap_or(false);
++    if prev_effective == new && prev_state.is_some() {
++        return vec![];
++    }
++    set_session_writeback_inner(app, new);
++    refresh_open_settings_modals(app);
++    tracing::info!(target: "settings", key = "session_writeback", value = new, "setting changed");
++    app.show_toast(if new {
++        "Session sync on — new sessions will be stored on xAI servers (restart to apply)"
++    } else {
++        "Session sync off — sessions stay on this machine (restart to apply)"
++    });
++    vec![Effect::PersistSetting {
++        key: "session_writeback",
++        value: crate::settings::SettingValue::Bool(new),
++        rollback_value: crate::settings::SettingValue::Bool(prev_effective),
++    }]
++}
++
+ // ---------------------------------------------------------------------------
+ // display_refresh_auto_cadence — SHELL-OWNED nested Option on
+ // `[ui.display_refresh].auto_cadence_enabled`. Restart-required.
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs
+index f89930f05c0390affc27e6feb0249cc38b6dd411..cc4076c47fbf3aa5d4a2352aed36ea8d72fadaf9 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/settings/ui.rs
+@@ -11,10 +11,10 @@ use super::setters::{
+     set_max_thoughts_width_inner, set_multiline_mode, set_page_flip_on_send_inner,
+     set_prompt_suggestions_inner, set_remember_tool_approvals_inner, set_render_mermaid_inner,
+     set_respect_manual_folds_inner, set_screen_mode_inner, set_scroll_lines_inner,
+-    set_scroll_mode_inner, set_scroll_speed_inner, set_show_thinking_blocks_inner,
+-    set_show_tips_inner, set_simple_mode_inner, set_theme_inner, set_timeline_inner,
+-    set_timestamps, set_timestamps_inner, set_vim_mode_inner, set_voice_capture_mode_inner,
+-    set_voice_keybind_enabled_inner, set_voice_stt_language_inner,
++    set_scroll_mode_inner, set_scroll_speed_inner, set_session_writeback_inner,
++    set_show_thinking_blocks_inner, set_show_tips_inner, set_simple_mode_inner, set_theme_inner,
++    set_timeline_inner, set_timestamps, set_timestamps_inner, set_vim_mode_inner,
++    set_voice_capture_mode_inner, set_voice_keybind_enabled_inner, set_voice_stt_language_inner,
+ };
+ use crate::app::actions::{Action, Effect};
+ use crate::app::app_view::{ActiveView, AppView};
+@@ -51,6 +51,7 @@ pub(crate) fn refresh_open_settings_modals(app: &mut AppView) {
+     let coding_data_sharing_lock_from_app = app.coding_data_sharing_lock();
+     let show_tips_from_app = app.show_tips;
+     let auto_update_from_app = app.auto_update;
++    let session_writeback_from_app = app.session_writeback;
+     let respect_manual_folds_from_app = app.appearance.scrollback.scroll.respect_manual_folds;
+     let auto_mode_gate_from_app = app.auto_mode_gate;
+     let ask_user_question_timeout_enabled_from_app = app.ask_user_question_timeout_enabled;
+@@ -88,6 +89,7 @@ pub(crate) fn refresh_open_settings_modals(app: &mut AppView) {
+                 plan_mode_active: agent.plan_mode_pending.unwrap_or(agent.plan_mode_active),
+                 show_tips: show_tips_from_app,
+                 auto_update: auto_update_from_app,
++                session_writeback: session_writeback_from_app,
+                 vim_mode: crate::appearance::cache::load_vim_mode(),
+                 scroll_speed: crate::appearance::cache::load_scroll_speed(),
+                 respect_manual_folds: respect_manual_folds_from_app,
+@@ -192,6 +194,7 @@ pub(in crate::app::dispatch) fn dispatch_open_settings(
+     let coding_data_sharing_lock_from_app = app.coding_data_sharing_lock();
+     let show_tips_from_app = app.show_tips;
+     let auto_update_from_app = app.auto_update;
++    let session_writeback_from_app = app.session_writeback;
+     let respect_manual_folds_from_app = app.appearance.scrollback.scroll.respect_manual_folds;
+     let auto_mode_gate_from_app = app.auto_mode_gate;
+     let ask_user_question_timeout_enabled_from_app = app.ask_user_question_timeout_enabled;
+@@ -238,6 +241,7 @@ pub(in crate::app::dispatch) fn dispatch_open_settings(
+         plan_mode_active: agent.plan_mode_pending.unwrap_or(agent.plan_mode_active),
+         show_tips: show_tips_from_app,
+         auto_update: auto_update_from_app,
++        session_writeback: session_writeback_from_app,
+         vim_mode: crate::appearance::cache::load_vim_mode(),
+         scroll_speed: crate::appearance::cache::load_scroll_speed(),
+         respect_manual_folds: respect_manual_folds_from_app,
+@@ -736,6 +740,7 @@ pub(crate) fn build_pager_snapshot(app: &AppView) -> crate::settings::PagerLocal
+         plan_mode_active: agent_plan_mode(app),
+         show_tips: app.show_tips,
+         auto_update: app.auto_update,
++        session_writeback: app.session_writeback,
+         vim_mode: crate::appearance::cache::load_vim_mode(),
+         scroll_speed: crate::appearance::cache::load_scroll_speed(),
+         respect_manual_folds: app.appearance.scrollback.scroll.respect_manual_folds,
+@@ -902,6 +907,7 @@ pub(in crate::app::dispatch) fn action_for_reset(
+         // show_tips / auto_update / display_refresh_auto_cadence: direct bool.
+         ("show_tips", SettingValue::Bool(b)) => Some(Action::SetShowTips(*b)),
+         ("auto_update", SettingValue::Bool(b)) => Some(Action::SetAutoUpdate(*b)),
++        ("session_writeback", SettingValue::Bool(b)) => Some(Action::SetSessionWriteback(*b)),
+         ("display_refresh_auto_cadence", SettingValue::Bool(b)) => {
+             Some(Action::SetDisplayRefreshAutoCadence(*b))
+         }
+@@ -1212,6 +1218,13 @@ pub(in crate::app::dispatch) fn apply_setting_rollback(
+                 set_auto_update_inner(app, *b);
+             }
+         }
++        ("session_writeback", SettingValue::Bool(b)) => {
++            if Some(*b) == pr13_effective_default("session_writeback") {
++                app.session_writeback = None;
++            } else {
++                set_session_writeback_inner(app, *b);
++            }
++        }
+         // fork_secondary_model: empty rollback restores baseline default.
+         ("fork_secondary_model", SettingValue::String(s)) => {
+             let restored = if s.is_empty() {
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
+index 2710f9f8ef2b6cdeb8e0c192158b58174cc2cb43..f057a70def326159a68a91026be33b95a04f5c31 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/mod.rs
+@@ -178,6 +178,7 @@ fn test_app() -> AppView {
+         coding_data_write_seq: 0,
+         show_tips: None,
+         auto_update: None,
++        session_writeback: None,
+         ask_user_question_timeout_enabled: None,
+         zdr_access_enabled: false,
+         usage_billing_redirect_url: None,
+diff --git a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/settings.rs b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/settings.rs
+index 4dfbb73218a0bbeaaaaa33222bd5a6309c69a19e..6720c60dbd6be24e9de31624200020f4012827aa 100644
+--- a/crates/codegen/xai-grok-pager/src/app/dispatch/tests/settings.rs
++++ b/crates/codegen/xai-grok-pager/src/app/dispatch/tests/settings.rs
+@@ -1641,6 +1641,10 @@ fn move_setting_away_from_default(app: &mut AppView, key: crate::settings::Setti
+         "auto_update" => {
+             let _ = dispatch(Action::SetAutoUpdate(false), app);
+         }
++        // Off by default in Grok Privacy, so "away" is on.
++        "session_writeback" => {
++            let _ = dispatch(Action::SetSessionWriteback(true), app);
++        }
+         "vim_mode" => {
+             let _ = dispatch(Action::SetVimMode(true), app);
+         }
+diff --git a/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs b/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs
+index 79cabf52cdae87a6789d43b057d1815c4fad5dc8..5b800b771bba4e26dd3488148f5b53ce4fbb8443 100644
+--- a/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs
++++ b/crates/codegen/xai-grok-pager/src/app/effects/helpers.rs
+@@ -1432,6 +1432,14 @@ pub(crate) async fn persist_setting(
+                 .await
+                 .map_err(|e| e.to_string())
+         }
++        "session_writeback" => {
++            let SettingValue::Bool(b) = value else {
++                return Err(kind_mismatch("session_writeback", "Bool", &value));
++            };
++            xai_grok_shell::util::config::set_session_writeback(b)
++                .await
++                .map_err(|e| e.to_string())
++        }
+         "fork_secondary_model" => {
+             let SettingValue::String(s) = value else {
+                 return Err(kind_mismatch("fork_secondary_model", "String", &value));
+diff --git a/crates/codegen/xai-grok-pager/src/app/event_loop.rs b/crates/codegen/xai-grok-pager/src/app/event_loop.rs
+index d0f8962eb2d298072d4a232c7ec50b5ddec5ba37..88a258601af46090d96d5719e8c1f9f05d46c6ea 100644
+--- a/crates/codegen/xai-grok-pager/src/app/event_loop.rs
++++ b/crates/codegen/xai-grok-pager/src/app/event_loop.rs
+@@ -1573,6 +1573,7 @@ pub(crate) async fn run(
+     let config_session_bools = load_initial_config_session_bools();
+     app.show_tips = config_session_bools.show_tips;
+     app.auto_update = config_session_bools.auto_update;
++    app.session_writeback = config_session_bools.session_writeback;
+     app.ask_user_question_timeout_enabled = config_session_bools.ask_user_question_timeout_enabled;
+     // Prime thread-local caches so first render doesn't hit disk.
+     crate::appearance::cache::prime(&app.current_ui);
+@@ -3128,6 +3129,7 @@ pub(crate) fn load_initial_ui_config() -> xai_grok_shell::agent::config::UiConfi
+ struct InitialConfigSessionBools {
+     show_tips: Option<bool>,
+     auto_update: Option<bool>,
++    session_writeback: Option<bool>,
+     ask_user_question_timeout_enabled: Option<bool>,
+ }
+ 
+@@ -3139,6 +3141,7 @@ fn load_initial_config_session_bools() -> InitialConfigSessionBools {
+     InitialConfigSessionBools {
+         show_tips: cli_bool("show_tips"),
+         auto_update: cli_bool("auto_update"),
++        session_writeback: cli_bool("session_writeback"),
+         ask_user_question_timeout_enabled: root
+             .get("toolset")
+             .and_then(|t| t.get("ask_user_question"))
+diff --git a/crates/codegen/xai-grok-pager/src/settings/defs.rs b/crates/codegen/xai-grok-pager/src/settings/defs.rs
+index bb6cda85c7e7218e385a6dc4bc018db6dab6f26a..f4962c768ad190e262a389d97c9fe28466b40e4a 100644
+--- a/crates/codegen/xai-grok-pager/src/settings/defs.rs
++++ b/crates/codegen/xai-grok-pager/src/settings/defs.rs
+@@ -1219,6 +1219,36 @@ pub fn default_settings() -> Vec<SettingMeta> {
+             restart_required: false,
+             hidden_in_minimal: false,
+         },
++        // SHELL-owned, persisted to `[cli].session_writeback`. The single
++        // switch for server-side session storage in Grok Privacy: nothing
++        // else — not `--storage-mode`, not `GROK_STORAGE_MODE`, not the
++        // backend-served `writeback_enabled` — can turn it on.
++        SettingMeta {
++            key: "session_writeback",
++            category: SettingCategory::Privacy,
++            owner: SettingOwner::Shell,
++            label: "Session sync to xAI servers",
++            description: "Off by default. When on, each session — your messages, the model's \
++                          replies, tool calls and the working directory path — is uploaded to \
++                          xAI's session backend as it happens, and can be resumed from another \
++                          machine. When off, sessions stay in ~/.grok/sessions on this machine. \
++                          Inference still reaches xAI either way; this only controls whether \
++                          the transcript is stored there.",
++            keywords: &[
++                "privacy",
++                "session",
++                "sync",
++                "writeback",
++                "upload",
++                "storage",
++                "backend",
++                "resume",
++                "cloud",
++            ],
++            kind: SettingKind::Bool { default: false },
++            restart_required: true,
++            hidden_in_minimal: false,
++        },
+         // SHELL-owned, persisted to `[ui].default_selected_permission` in
+         // config.toml. Read by the pager via `appearance::permission_cursor`.
+         // Canonical `always_allow_all_sessions` (the effective default) lands
+diff --git a/crates/codegen/xai-grok-pager/src/settings/registry.rs b/crates/codegen/xai-grok-pager/src/settings/registry.rs
+index a1414546164805b77e3670f29cd2954df9ff7353..26119e9694ff0134cf3b0780ae3ecac498c19db9 100644
+--- a/crates/codegen/xai-grok-pager/src/settings/registry.rs
++++ b/crates/codegen/xai-grok-pager/src/settings/registry.rs
+@@ -281,6 +281,10 @@ pub struct PagerLocalSnapshot {
+     /// `[cli].auto_update` mirror. `None` = no TOML override → default `false`
+     /// in Grok Privacy (no silent x.ai channel updates).
+     pub auto_update: Option<bool>,
++    /// `[cli].session_writeback` mirror. `None` = no TOML override → default
++    /// `false` in Grok Privacy (sessions are never stored server-side unless
++    /// the user turns this on).
++    pub session_writeback: Option<bool>,
+     /// Process-wide vim-mode scrollback flag. Mirrors
+     /// `appearance::cache::load_vim_mode()` at snapshot time.
+     pub vim_mode: bool,
+@@ -322,6 +326,7 @@ impl Default for PagerLocalSnapshot {
+             plan_mode_active: false,
+             show_tips: None,
+             auto_update: None,
++            session_writeback: None,
+             vim_mode: false,
+             // Matches the registry default and
+             // `appearance::cache::SCROLL_SPEED_DEFAULT`. Bare `u8::default()`
+@@ -705,6 +710,7 @@ pub fn current_value_for(
+         // CLI batch: snapshot mirrors; `None` → effective default `true`.
+         "show_tips" => Some(SettingValue::Bool(pager.show_tips.unwrap_or(true))),
+         "auto_update" => Some(SettingValue::Bool(pager.auto_update.unwrap_or(false))),
++        "session_writeback" => Some(SettingValue::Bool(pager.session_writeback.unwrap_or(false))),
+         // fork_secondary_model: baseline value folds to empty string. The
+         // mirror persists the ModelId slug but the DynamicEnum canonicals
+         // are catalog display names, so resolve via the snapshot; a stale
+@@ -974,6 +980,13 @@ mod tests {
+                          (no silent x.ai channel updates)"
+                     );
+                 }
++                ("session_writeback", SettingKind::Bool { default }) => {
++                    assert!(
++                        !*default,
++                        "session_writeback registry default must be false in Grok Privacy \
++                         (sessions are never stored server-side unless asked for)"
++                    );
++                }
+                 // vim_mode: Option<bool>; None → false.
+                 ("vim_mode", SettingKind::Bool { default }) => {
+                     assert_eq!(
+diff --git a/crates/codegen/xai-grok-pager/src/views/settings_modal/state.rs b/crates/codegen/xai-grok-pager/src/views/settings_modal/state.rs
+index 57bfe256cdeef486f16dd0983c1e90bd59ebcc79..0e34ea8f951e03eedc29ee4343f3fe3f30af8436 100644
+--- a/crates/codegen/xai-grok-pager/src/views/settings_modal/state.rs
++++ b/crates/codegen/xai-grok-pager/src/views/settings_modal/state.rs
+@@ -909,6 +909,7 @@ pub(super) fn action_for_bool(key: SettingKey, new: bool) -> Option<Action> {
+         "invert_scroll" => Some(Action::SetInvertScroll(new)),
+         "show_tips" => Some(Action::SetShowTips(new)),
+         "auto_update" => Some(Action::SetAutoUpdate(new)),
++        "session_writeback" => Some(Action::SetSessionWriteback(new)),
+         "display_refresh_auto_cadence" => Some(Action::SetDisplayRefreshAutoCadence(new)),
+         _ => None,
+     }
+diff --git a/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs b/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs
+index 2b64e239d2028a1847584abd312fec2e604fe73c..5173b5cbfac070f7fe836e3c322d9db96f8db1ce 100644
+--- a/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs
++++ b/crates/codegen/xai-grok-pager/src/views/settings_modal/tests.rs
+@@ -682,6 +682,7 @@ fn rows_contain_categories_and_settings_through_pr_14() {
+             "plan_mode",
+             // SHELL-owned coding_data_sharing (Privacy category).
+             "coding_data_sharing",
++            "session_writeback",
+             // SHELL-owned default_model (Models category).
+             "default_model",
+             // Models category. `default_reasoning_effort`,
+diff --git a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
+index 7c7e72d5e2a060d4f0f2d63ec14e9ca4ce45cb86..fa7288acb94c5aef8b1b9d1b29f05a27b137c4c5 100644
+--- a/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
++++ b/crates/codegen/xai-grok-pager/tests/settings_e2e.rs
+@@ -59,6 +59,7 @@ const ALL_SETTINGS_EXERCISED: &[&str] = &[
+     "plan_mode",
+     "show_tips",
+     "auto_update",
++    "session_writeback",
+     "fork_secondary_model",
+     "show_thinking_blocks",
+     "prompt_suggestions",
+@@ -267,6 +268,9 @@ fn assert_set_bool_action(outcome: SettingsKeyOutcome, key: &str, expected: bool
+         ("auto_update", Action::SetAutoUpdate(b)) => {
+             assert_eq!(b, expected, "SetAutoUpdate value differs from expected")
+         }
++        ("session_writeback", Action::SetSessionWriteback(b)) => {
++            assert_eq!(b, expected, "SetSessionWriteback value differs from expected")
++        }
+         ("respect_manual_folds", Action::SetRespectManualFolds(b)) => {
+             assert_eq!(
+                 b, expected,
+@@ -1905,6 +1909,7 @@ fn registry_kind_membership_through_pr_14() {
+             "toolset.ask_user_question.timeout_enabled",
+             "auto_update",
+             "show_tips",
++            "session_writeback",
+             "voice_keybind_enabled",
+             // Per-tip contextual-hint children (hidden from the top-level list,
+             // toggled inside the group sub-sheet) are still Bool settings.
+@@ -2083,6 +2088,7 @@ fn defaults_round_trip_through_registry() {
+             "plan_mode" => SettingValue::Enum("off"),
+             "show_tips" => SettingValue::Bool(true),
+             "auto_update" => SettingValue::Bool(false),
++            "session_writeback" => SettingValue::Bool(false),
+             "fork_secondary_model" => SettingValue::String(String::new()),
+             "show_thinking_blocks" => SettingValue::Bool(true),
+             "prompt_suggestions" => SettingValue::Bool(true),
+@@ -2164,6 +2170,7 @@ fn settings_value_payload_matches_kind() {
+             | SettingsKeyOutcome::Action(Action::SetAskUserQuestionTimeoutEnabled(_))
+             | SettingsKeyOutcome::Action(Action::SetShowTips(_))
+             | SettingsKeyOutcome::Action(Action::SetAutoUpdate(_))
++            | SettingsKeyOutcome::Action(Action::SetSessionWriteback(_))
+             | SettingsKeyOutcome::Action(Action::SetRespectManualFolds(_))
+             | SettingsKeyOutcome::Action(Action::SetShowThinkingBlocks(_))
+             | SettingsKeyOutcome::Action(Action::SetPromptSuggestions(_))
+@@ -7874,3 +7881,43 @@ fn collapsed_edit_blocks_renders_under_appearance_category_shell_owned() {
+          Appearance order: {keys:?}"
+     );
+ }
++
++// ---------------------------------------------------------------------------
++// session_writeback (Privacy Bool, restart_required) — Grok Privacy
++// ---------------------------------------------------------------------------
++
++/// The switch must sit under Privacy: it is the only thing standing between a
++/// session and xAI's session backend, so it has to be where a user goes
++/// looking for privacy controls.
++#[test]
++fn privacy_session_writeback_renders_under_privacy_category() {
++    let reg = SettingsRegistry::defaults();
++    let meta = reg
++        .find("session_writeback")
++        .expect("session_writeback must be registered");
++    assert_eq!(
++        meta.category,
++        SettingCategory::Privacy,
++        "session_writeback must live under Privacy"
++    );
++    assert!(
++        matches!(meta.kind, SettingKind::Bool { default: false }),
++        "session_writeback must be a Bool defaulting to off: {:?}",
++        meta.kind
++    );
++    assert!(
++        meta.restart_required,
++        "storage mode is resolved once per session, so the row must say so"
++    );
++}
++
++/// Space-toggle dispatches the typed setter that persists
++/// `[cli].session_writeback` — the single input `StorageMode::resolve_privacy`
++/// reads.
++#[test]
++fn privacy_space_on_session_writeback_dispatches_typed_setter() {
++    let mut s = make_state();
++    navigate_to(&mut s, "session_writeback");
++    let outcome = handle_settings_key(&mut s, &press(KeyCode::Char(' ')));
++    assert_set_bool_action(outcome, "session_writeback", true);
++}
+diff --git a/crates/codegen/xai-grok-shell/src/agent/config.rs b/crates/codegen/xai-grok-shell/src/agent/config.rs
+index 967fbda1c8fe5ae347ff23abb8f741ec17b1ad07..be82afc0edf90ebb4d312bfa2a73d04e5e5cfad5 100644
+--- a/crates/codegen/xai-grok-shell/src/agent/config.rs
++++ b/crates/codegen/xai-grok-shell/src/agent/config.rs
+@@ -1022,6 +1022,12 @@ pub struct CliConfig {
+     /// Group sessions by repo in the picker and CLI listings.
+     #[serde(skip_serializing_if = "Option::is_none")]
+     pub session_picker_grouped: Option<bool>,
++    /// Grok Privacy: opt in to session writeback (pushing session content to
++    /// the vendor session backend). `None`/`false` — the default — keeps every
++    /// session on this machine. See [`crate::config::StorageMode::resolve`];
++    /// the user toggles it from `/config`.
++    #[serde(skip_serializing_if = "Option::is_none")]
++    pub session_writeback: Option<bool>,
+ }
+ #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+ #[serde(default)]
+diff --git a/crates/codegen/xai-grok-shell/src/config/mod.rs b/crates/codegen/xai-grok-shell/src/config/mod.rs
+index b9990ec3accf2f9f3d0e925608ff5745af743977..5dca05c37445becc1c942d583386391c9d4a5578 100644
+--- a/crates/codegen/xai-grok-shell/src/config/mod.rs
++++ b/crates/codegen/xai-grok-shell/src/config/mod.rs
+@@ -842,12 +842,31 @@ pub enum StorageMode {
+     /// Local + HTTP flush at end of turn
+     Writeback,
+ }
++/// Grok Privacy: `[cli].session_writeback` from the effective config layers.
++///
++/// The single switch that can turn session writeback on. Read from disk rather
++/// than threaded through [`StorageMode::resolve`]'s signature so upstream's
++/// call sites stay untouched. Absent, unreadable or non-bool all mean "not
++/// opted in": this fails closed.
++pub fn session_writeback_opt_in() -> bool {
++    load_effective_config()
++        .ok()
++        .and_then(|root| root.get("cli")?.get("session_writeback")?.as_bool())
++        .unwrap_or(false)
++}
++
+ impl StorageMode {
+     /// Resolve from all sources: CLI > env var > remote settings > default (Local).
++    ///
++    /// Grok Privacy short-circuits the whole chain: see
++    /// [`Self::resolve_privacy`].
+     pub fn resolve(
+         cli_override: Option<&str>,
+         remote: Option<&crate::util::config::RemoteSettings>,
+     ) -> Self {
++        if xai_grok_version::PRIVACY_BUILD {
++            return Self::resolve_privacy(cli_override, remote, session_writeback_opt_in());
++        }
+         if let Some(mode) = cli_override {
+             match mode {
+                 "writeback" => return Self::Writeback,
+@@ -869,6 +888,48 @@ impl StorageMode {
+         }
+         Self::Local
+     }
++
++    /// Grok Privacy's replacement for [`Self::resolve`]'s precedence chain.
++    ///
++    /// Writeback pushes whole sessions — prompts, replies, tool calls and the
++    /// absolute working directory — to the vendor session backend. In this
++    /// fork that is a decision the user makes in `/config`, and nothing else:
++    ///
++    /// - `session_writeback` opted in → `Writeback` (upstream still requires
++    ///   xAI auth downstream in [`crate::agent::init`], which is unchanged);
++    /// - otherwise → `Local`, whatever `--storage-mode`, `GROK_STORAGE_MODE`
++    ///   or the backend-served `writeback_enabled` ask for.
++    ///
++    /// Asking for *more* privacy is never refused, so an explicit `local`
++    /// still wins over the opt-in.
++    ///
++    /// Pure on purpose: the privacy contract drives this entry point directly
++    /// rather than staging a config file.
++    #[doc(hidden)]
++    pub fn resolve_privacy(
++        cli_override: Option<&str>,
++        remote: Option<&crate::util::config::RemoteSettings>,
++        opt_in: bool,
++    ) -> Self {
++        let env_mode = std::env::var("GROK_STORAGE_MODE").ok();
++        if cli_override == Some("local") || env_mode.as_deref() == Some("local") {
++            return Self::Local;
++        }
++        if opt_in {
++            return Self::Writeback;
++        }
++        let asked = cli_override == Some("writeback")
++            || env_mode.as_deref() == Some("writeback")
++            || remote.is_some_and(|r| r.writeback_enabled == Some(true));
++        if asked {
++            tracing::warn!(
++                "privacy: session writeback refused — sessions stay on this machine. \
++                 Enable it in /config (Privacy → Session sync) to store them server-side."
++            );
++        }
++        Self::Local
++    }
++
+     /// Resolve from remote settings, enforcing the rule that `Writeback`
+     /// requires grok.com auth (it syncs to grok-code-backend). This is the
+     /// single home for that gate, used at boot ([`crate::agent::init`]) and by
+diff --git a/crates/codegen/xai-grok-shell/src/session/persistence.rs b/crates/codegen/xai-grok-shell/src/session/persistence.rs
+index 06c5ac8db78b7cac95cd543a700cb104fa1eef33..4afc4c43a5f6c6653fab3f59e268cefba3c0c94d 100644
+--- a/crates/codegen/xai-grok-shell/src/session/persistence.rs
++++ b/crates/codegen/xai-grok-shell/src/session/persistence.rs
+@@ -2106,6 +2106,13 @@ fn init_remote_sync(
+     match storage_mode {
+         StorageMode::Local => Ok(None),
+         StorageMode::Writeback => {
++            // Last-line chokepoint: no `RemoteSync` is ever built for a privacy
++            // build the user has not opted in, even if a caller reached
++            // `Writeback` without going through `StorageMode::resolve`.
++            if xai_grok_version::PRIVACY_BUILD && !crate::config::session_writeback_opt_in() {
++                tracing::info!("privacy: session writeback not opted in; staying local");
++                return Ok(None);
++            }
+             let auth_manager = auth_manager.ok_or_else(|| {
+                 io::Error::new(
+                     io::ErrorKind::PermissionDenied,
+diff --git a/crates/codegen/xai-grok-shell/src/util/config/settings_writes.rs b/crates/codegen/xai-grok-shell/src/util/config/settings_writes.rs
+index 8cf5f268174ef58df2aab0cc2b32fa2966d3dd80..d152dac8d779a95aced97071ed3994928b66fd38 100644
+--- a/crates/codegen/xai-grok-shell/src/util/config/settings_writes.rs
++++ b/crates/codegen/xai-grok-shell/src/util/config/settings_writes.rs
+@@ -90,6 +90,13 @@ pub async fn set_compact_mode(value: bool) -> Result<()> {
+     update_config(|cfg| cfg.ui.compact_mode = value).await
+ }
+ 
++/// Persist `[cli].session_writeback` via `update_config`. Grok Privacy's only
++/// switch for server-side session storage — see
++/// [`crate::config::StorageMode::resolve_privacy`].
++pub async fn set_session_writeback(value: bool) -> Result<()> {
++    update_config(|cfg| cfg.cli.session_writeback = Some(value)).await
++}
++
+ /// Persist `[ui].show_timestamps` via `update_config`. `UiConfig::show_timestamps`
+ /// is `Option<bool>` — pager-side `None` means "use default" — so we wrap.
+ pub async fn set_show_timestamps(value: bool) -> Result<()> {
+diff --git a/crates/codegen/xai-grok-shell/tests/privacy_resolvers.rs b/crates/codegen/xai-grok-shell/tests/privacy_resolvers.rs
+index 8ade06704bf2baeddb34f7d5c61dc48b13e05f38..75611de83d7dff63a1fe9b1ac8007b5d3e61e070 100644
+--- a/crates/codegen/xai-grok-shell/tests/privacy_resolvers.rs
++++ b/crates/codegen/xai-grok-shell/tests/privacy_resolvers.rs
+@@ -77,3 +77,110 @@ fn privacy_build_trace_upload_ignores_env_config_and_remote() {
+         std::env::remove_var("GROK_TELEMETRY_TRACE_UPLOAD");
+     }
+ }
++
++// ── Session writeback ────────────────────────────────────────────────────
++//
++// Writeback pushes whole sessions (prompts, replies, tool calls, the absolute
++// working directory) to the vendor session backend. These drive the shipped
++// `StorageMode::resolve_privacy` — the one decision point every activation
++// route funnels through — with the inputs that would turn it on upstream.
++
++/// `GROK_STORAGE_MODE` is read inside the resolver, so each case sets it
++/// explicitly rather than inheriting whatever the shell had.
++fn with_storage_env<T>(value: Option<&str>, f: impl FnOnce() -> T) -> T {
++    // SAFETY: every caller is #[serial]
++    unsafe {
++        match value {
++            Some(v) => std::env::set_var("GROK_STORAGE_MODE", v),
++            None => std::env::remove_var("GROK_STORAGE_MODE"),
++        }
++    }
++    let out = f();
++    unsafe {
++        std::env::remove_var("GROK_STORAGE_MODE");
++    }
++    out
++}
++
++#[test]
++#[serial]
++fn privacy_writeback_refuses_flag_env_and_remote_without_opt_in() {
++    use xai_grok_shell::config::StorageMode;
++    let remote_on = RemoteSettings {
++        writeback_enabled: Some(true),
++        ..Default::default()
++    };
++    // The backend asking for it is not consent.
++    with_storage_env(None, || {
++        assert_eq!(
++            StorageMode::resolve_privacy(None, Some(&remote_on), false),
++            StorageMode::Local,
++            "server-side writeback_enabled must not turn session upload on"
++        );
++        // Nor is a command-line flag, once the switch owns the decision.
++        assert_eq!(
++            StorageMode::resolve_privacy(Some("writeback"), None, false),
++            StorageMode::Local,
++            "--storage-mode writeback must not bypass the /config switch"
++        );
++    });
++    // Nor an inherited environment variable.
++    with_storage_env(Some("writeback"), || {
++        assert_eq!(
++            StorageMode::resolve_privacy(None, Some(&remote_on), false),
++            StorageMode::Local,
++            "GROK_STORAGE_MODE must not bypass the /config switch"
++        );
++    });
++}
++
++#[test]
++#[serial]
++fn privacy_writeback_opt_in_enables_it() {
++    use xai_grok_shell::config::StorageMode;
++    with_storage_env(None, || {
++        assert_eq!(
++            StorageMode::resolve_privacy(None, None, true),
++            StorageMode::Writeback,
++            "the /config switch alone must be enough to opt in"
++        );
++    });
++}
++
++#[test]
++#[serial]
++fn privacy_writeback_explicit_local_wins_over_opt_in() {
++    use xai_grok_shell::config::StorageMode;
++    // Asking for more privacy is never refused.
++    with_storage_env(None, || {
++        assert_eq!(
++            StorageMode::resolve_privacy(Some("local"), None, true),
++            StorageMode::Local
++        );
++    });
++    with_storage_env(Some("local"), || {
++        assert_eq!(
++            StorageMode::resolve_privacy(None, None, true),
++            StorageMode::Local
++        );
++    });
++}
++
++#[test]
++#[serial]
++fn privacy_writeback_unknown_storage_mode_value_stays_local() {
++    use xai_grok_shell::config::StorageMode;
++    let remote_on = RemoteSettings {
++        writeback_enabled: Some(true),
++        ..Default::default()
++    };
++    for junk in ["Writeback", "WRITEBACK", "writeback ", "remote", ""] {
++        with_storage_env(Some(junk), || {
++            assert_eq!(
++                StorageMode::resolve_privacy(Some(junk), Some(&remote_on), false),
++                StorageMode::Local,
++                "unparsed storage-mode value {junk:?} must not fall through to writeback"
++            );
++        });
++    }
++}
+
+base-commit: 9fabadea800fa6e2ed8ec91c4f45f02b7e2504f4
+prerequisite-patch-id: 24f0c2e06b604d8de0714c9d75849287c1f700d2
+prerequisite-patch-id: 5e1e8b6cd28948ddeadd06414d67f3929184bd3f
+prerequisite-patch-id: 9d2ed8f5725c42a278c44b406704a7d3bb7c4ec1
+prerequisite-patch-id: 2fa212381d381c39603469cdb7cf899da89adc9f
+prerequisite-patch-id: 100ce8efd18effb2554714c2a0a4f2b50b87e000
+prerequisite-patch-id: 78621bb25d68cf8b65908fd94dbc76e11b44832b
+-- 
+2.43.0
+
